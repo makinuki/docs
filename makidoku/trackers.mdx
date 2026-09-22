@@ -1,3 +1,107 @@
 ---
-title: "trackers"
+title: "Sync manga progress with external trackers"
+sidebarTitle: "Trackers"
+description: "Connect AniList, MyAnimeList, MangaBaka, MangaUpdates, and Kitsu to MakiDoku. Credentials are encrypted in SQLite and progress syncs automatically when you finish a chapter."
 ---
+
+MakiDoku supports several tracker providers so your reading progress stays in sync across services. Credentials are encrypted in SQLite with `MAKIDOKU_SECRET` and are never included in backups or API responses.
+
+## Supported providers
+
+| Provider | Search | Status/Progress writes | Auth type |
+| --- | --- | --- | --- |
+| AniList | Yes | Yes | OAuth |
+| MyAnimeList | Yes | Yes | OAuth |
+| MangaBaka | Yes | Yes | OAuth or PAT |
+| MangaUpdates | Yes | No (search only) | OAuth |
+| Kitsu | Yes | No (search only) | OAuth |
+
+## Prerequisites
+
+Tracker credential storage requires the `MAKIDOKU_SECRET` environment variable. Without it, credential operations are disabled and the API returns a configuration hint.
+
+## OAuth setup
+
+Register an OAuth application with each provider you want to use. The redirect URI must exactly match:
+
+```text
+http://127.0.0.1:6254/api/trackers/<provider>/auth/callback
+```
+
+Add the client credentials to a `.env` file in your working directory:
+
+```bash
+ANILIST_CLIENT_ID=your-id
+ANILIST_CLIENT_SECRET=your-secret
+MYANIMELIST_CLIENT_ID=your-id
+MANGABAKA_CLIENT_ID=your-id
+```
+
+Kitsu and MangaUpdates do not require application registration.
+
+## Authenticate via the API
+
+### Start OAuth flow
+
+```bash
+curl 'http://127.0.0.1:6254/api/trackers/anilist/auth/start'
+```
+
+Response:
+
+```json
+{
+  "authorizationUrl": "https://anilist.co/api/v2/oauth/authorize?...",
+  "redirectUri": "http://127.0.0.1:6254/api/trackers/anilist/auth/callback"
+}
+```
+
+Open the `authorizationUrl` in your browser, authorize the app, and the callback page will confirm completion.
+
+### Submit a MangaBaka PAT
+
+```bash
+curl -X POST http://127.0.0.1:6254/api/trackers/mangabaka/token \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "accessToken": "mb-your-personal-access-token",
+    "metadata": {"auth": "pat"}
+  }'
+```
+
+The PAT is encrypted before storage. Authenticated MangaBaka requests send the stored PAT in the `X-API-Key` header.
+
+### View connected trackers
+
+```bash
+curl http://127.0.0.1:6254/api/trackers
+```
+
+## Bind a tracker to a title
+
+```bash
+curl -X POST 'http://127.0.0.1:6254/api/manga/<manga-id>/trackers/anilist/bind' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "remoteId": "12345",
+    "remoteTitle": "Yosuga no Sora"
+  }'
+```
+
+## Progress sync
+
+Reader progress is stored locally. When a chapter reaches 90 percent read or is explicitly completed, MakiDoku enqueues one durable job per bound tracker. Run the sync worker from the CLI:
+
+```bash
+go run . sync --tracker anilist
+```
+
+You can also list pending sync jobs via the API:
+
+```bash
+curl http://127.0.0.1:6254/api/tracker-sync
+```
+
+## Real-time tracker events
+
+Subscribe to `ws://127.0.0.1:6254/api/trackers/events` to receive credential-change notifications so your client can refresh its UI immediately after authorization completes.

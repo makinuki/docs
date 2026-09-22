@@ -1,3 +1,77 @@
 ---
-title: "downloads"
+title: "Download manga chapters with MakiDoku"
+sidebarTitle: "Downloads"
+description: "Queue chapters for download in SQLite, output CBZ archives or folders with ComicInfo.xml, and monitor progress through the REST API or WebSocket events."
 ---
+
+MakiDoku stores its download queue in SQLite so interrupted downloads resume automatically. Image requests reuse the same per-source HTTP client, cookie jar, and anti-bot clearance as plugin requests. Scrambled pages are passed through the source's `unscramble_image` export before they are written.
+
+## Output formats
+
+Downloaded chapters are stored under `<data-dir>/downloads/<source>/<title>/` by default.
+
+- **CBZ** archives contain zero-padded page names (minimum width 3) and a `ComicInfo.xml` metadata file.
+- **Folder** output extracts each chapter into its own directory with the same page naming and `ComicInfo.xml`.
+
+## Headless download (CLI)
+
+Download a range of chapters without starting the HTTP server. The source must already be installed in the selected data directory.
+
+```bash
+go run . download 'mangadex:<manga-id>' --chapters 1-50 --format cbz
+```
+
+Override concurrency, per-domain page interval, and output location:
+
+```bash
+go run . download 'mangadex:<manga-id>' --chapters 1-5 \
+  --workers 2 --page-interval 750ms --download-dir ./manga
+```
+
+## Download via the REST API
+
+<Steps>
+  <Step title="Enqueue chapters">
+    ```bash
+    curl -X POST http://127.0.0.1:6254/api/download \
+      -H 'Content-Type: application/json' \
+      -d '{"mangaId":"mangadex:<manga-id>","range":"1-10","format":"cbz"}'
+    ```
+  </Step>
+  <Step title="View the queue snapshot">
+    ```bash
+    curl http://127.0.0.1:6254/api/download
+    ```
+  </Step>
+  <Step title="Control an item">
+    ```bash
+    curl -X POST http://127.0.0.1:6254/api/download/1/pause
+    curl -X POST http://127.0.0.1:6254/api/download/1/resume
+    curl -X POST http://127.0.0.1:6254/api/download/1/cancel
+    curl -X POST http://127.0.0.1:6254/api/download/1/retry
+    ```
+  </Step>
+  <Step title="Clear finished items">
+    ```bash
+    curl -X POST http://127.0.0.1:6254/api/download/clear
+    ```
+  </Step>
+</Steps>
+
+## WebSocket events
+
+Connect to `ws://127.0.0.1:6254/api/download/events` for real-time updates. Each event includes the current queue item and aggregate downloader counters.
+
+Event types:
+
+- `queued`
+- `progress`
+- `paused`
+- `resumed`
+- `canceled`
+- `completed`
+- `failed`
+
+## Automatic downloads
+
+MakiDoku can automatically queue new chapters for titles that have the setting enabled. This is triggered during library updates and when refreshing an individual title. Use the API or web UI to toggle auto-download per title.

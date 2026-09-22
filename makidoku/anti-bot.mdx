@@ -1,3 +1,37 @@
 ---
-title: "anti-bot"
+title: "Handle anti-bot challenges in MakiDoku"
+sidebarTitle: "Anti-Bot"
+description: "Submit Cloudflare clearance cookies and browser user agents when a source returns CLOUDFLARE_BLOCKED. Reads are replayed once; writes are returned to the plugin."
 ---
+
+When a source answers with an anti-bot challenge, the request fails with the `CLOUDFLARE_BLOCKED` error code. MakiDoku does not solve challenges itself. Instead, you open the source in a normal browser, solve the challenge, and submit the resulting `cf_clearance` cookie together with the browser's user agent through the local API.
+
+## Submit clearance
+
+```bash
+curl -X POST http://127.0.0.1:6254/api/sources/asurascans/clearance \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "cookie": "<cf_clearance value>",
+    "userAgent": "<browser user agent>"
+  }'
+```
+
+The cookie and agent are stored with the source and applied to all later requests. The cookie value itself is never exposed through the API.
+
+## Wait for clearance during reads
+
+Set `--challenge-wait` (or `MAKIDOKU_CHALLENGE_WAIT`) to hold a blocked read while you submit clearance. With a positive wait:
+
+- A blocked GET or HEAD is held until clearance arrives or the wait elapses, then replayed once.
+- Writes are always returned to the plugin so it can decide whether re-invoking is safe.
+
+```bash
+go run . serve --challenge-wait 2m
+```
+
+With a zero wait (the default), a challenged request fails immediately with `CLOUDFLARE_BLOCKED`.
+
+## Error code reference
+
+`CLOUDFLARE_BLOCKED` is one of the standardized MakiNuki error codes. See the [error codes specification](/spec/error-codes) for the full list and their HTTP status mappings.

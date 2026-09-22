@@ -1,3 +1,64 @@
 ---
-title: "schemas"
+title: "Registry JSON Schemas for Plugin Output Validation"
+sidebarTitle: "Schemas"
+description: "Eight JSON Schemas served from makinuki.github.io validate registry manifests, source metadata, filters, manga items, details, chapters, and pages. Also available in the @makinuki/spec npm package."
 ---
+
+The MakiNuki registry and conformance runner share a single set of JSON Schemas. They are served from `https://makinuki.github.io/schemas/` and also ship inside the `@makinuki/spec` npm package. These schemas define the exact shape of every payload a source plugin can emit, from the top-level registry manifest down to a single page image.
+
+## Schema files
+
+| File | Validates | Description |
+| --- | --- | --- |
+| `index.schema.json` | `index.json` | The full registry manifest: version, updatedAt, and the sources array |
+| `metadata.schema.json` | `SourceMetadata` | Static metadata returned by `get_metadata()`: id, name, version, abiVersion, lang, baseUrl, iconUrl, nsfw |
+| `filter.schema.json` | `FilterSchema[]` | Array of filter definitions returned by `get_filters()`: select, tri_state, checkbox, and text filters |
+| `manga.schema.json` | `PageResult<MangaItem>` | Search results payload: paginated list of manga items with optional cover variants |
+| `details.schema.json` | `MangaDetails` | Details payload for a single manga: title, status, authors, genres, and an array of chapters |
+| `chapter.schema.json` | `ChapterItem` | Individual chapter inside `MangaDetails.chapters`: number, volume, language, title, scanlator |
+| `page.schema.json` | `PageItem` | Single image page returned by `get_pages()`: index, url, headers, and optional scramble metadata |
+| `pages.schema.json` | `PageItem[]` | Ordered array of page items, the direct output of `get_pages()` |
+
+## Key schema details
+
+### Filter schema (`filter.schema.json`)
+
+Filter definitions support four types that UIs can render:
+
+- **`select`**: Dropdown with predefined `options` (label/value pairs) and a single `default` string.
+- **`tri_state`**: Multi-select where each option can be Included (`+`), Excluded (`-`), or Neutral (absent).
+- **`checkbox`**: Boolean toggle with a `default` value.
+- **`text`**: Free-text input with an optional `placeholder` and `default`.
+
+### Page schema (`page.schema.json`)
+
+Each page carries an `isScrambled` flag. When `true`, the `metadata` field is required and must contain:
+
+- `layout`: `"slice"`, `"shift"`, or `"custom"`
+- `rows` and `cols`: grid dimensions
+- `tileW` and `tileH`: tile dimensions in pixels
+- `order`: array mapping each position to the original tile index
+
+## Using schemas in your host
+
+The same schemas are available as a peer dependency via the `@makinuki/spec` package:
+
+```bash
+npm install @makinuki/spec
+```
+
+You can load them with Ajv for optional runtime validation:
+
+```typescript
+import Ajv from "ajv";
+import addFormats from "ajv-formats";
+import metadataSchema from "@makinuki/spec/schemas/metadata.schema.json";
+
+const ajv = new Ajv({ allErrors: true });
+addFormats(ajv);
+const validate = ajv.compile(metadataSchema);
+```
+
+<Tip>
+  When loading a source at runtime, pass `{ validate: true }` to `runtime.loadSource` to enable Ajv schema validation on every plugin call. This catches regressions early during development without adding overhead to production builds.
+</Tip>

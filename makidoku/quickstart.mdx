@@ -1,3 +1,91 @@
 ---
-title: "quickstart"
+title: "Get started with MakiDoku in minutes"
+sidebarTitle: "Quickstart"
+description: "Build the embedded React UI, start the MakiDoku daemon, and verify the local REST API is running on 127.0.0.1:6254."
 ---
+
+MakiDoku is a single Go binary with an embedded React reader. To get started, build the frontend, start the daemon, and confirm the API is healthy.
+
+## Prerequisites
+
+- Go 1.26 or later (required by `go.mod`)
+- pnpm (to build the web UI)
+
+## Build and run
+
+<Steps>
+  <Step title="Build the web UI">
+    The Go binary embeds `web/dist`, so build the frontend first.
+
+    ```bash
+    cd web
+    pnpm install --ignore-scripts
+    pnpm run build
+    cd ..
+    ```
+  </Step>
+  <Step title="Verify the CLI">
+    Check that MakiDoku compiles and prints its commands.
+
+    ```bash
+    go run . --help
+    ```
+  </Step>
+  <Step title="Start the daemon">
+    Serve the embedded reader and the local REST API.
+
+    ```bash
+    go run . serve --port 6254 --bind 127.0.0.1
+    ```
+
+    The daemon listens on `http://127.0.0.1:6254`. Open that address in your browser to use the web UI.
+  </Step>
+  <Step title="Check health">
+    Confirm the API is responding.
+
+    ```bash
+    curl http://127.0.0.1:6254/api/health
+    ```
+
+    Expected response:
+
+    ```json
+    {"ok": true, "version": "0.1.0"}
+    ```
+  </Step>
+</Steps>
+
+## Data directory
+
+By default, MakiDoku stores its SQLite database and downloads in `./data`.
+
+```text
+./data/
+  makidoku.db
+  makidoku.db-shm
+  makidoku.db-wal
+  downloads/
+```
+
+You can override the data directory with the `--data-dir` flag or the `MAKIDOKU_DATA_DIR` environment variable:
+
+```bash
+go run . serve --data-dir /path/to/data
+go run . serve --data-dir "$HOME/.local/share/makidoku"
+```
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="CLI reference" icon="terminal" href="/makidoku/cli">
+    Explore every command and flag.
+  </Card>
+
+  <Card title="Install sources" icon="puzzle-piece" href="/makidoku/sources">
+    Add plugins from the registry or local binaries.
+  </Card>
+
+  <Card title="Configuration" icon="sliders" href="/makidoku/configuration">
+    Learn about env vars, flags, and settings.
+  </Card>
+</CardGroup>

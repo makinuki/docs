@@ -1,3 +1,228 @@
 ---
-title: "plugin-abi"
+title: "ABI 1 Plugin Exports: Metadata, Search, and Pages"
+sidebarTitle: "Plugin ABI"
+description: "Every required and optional plugin export in ABI 1, with JSON examples, PluginResult envelopes, and the unscramble_image failure convention."
 ---
+
+Every MakiNuki plugin exports a fixed set of functions that the host runtime calls to search manga, retrieve details, and serve pages. Static exports return raw JSON. Dynamic exports wrap their payloads in a `PluginResult<T>` envelope so the host can detect failures without trapping exceptions. This page documents each export, its parameters, and real JSON examples taken from the ABI 1 specification.
+
+## Export Types
+
+<Tabs>
+  <Tab title="Static">
+    `get_metadata()` and `get_filters()` return raw JSON directly. They do not use the `PluginResult` envelope because they are called once at load time and their failure is treated as a broken plugin.
+  </Tab>
+  <Tab title="Dynamic">
+    `search()`, `get_details()`, and `get_pages()` return `PluginResult<T>` JSON. The host inspects the `ok` field to decide whether to forward `data` or surface `error.code`.
+  </Tab>
+  <Tab title="Optional raw bytes">
+    `unscramble_image()` accepts and returns raw byte buffers, not JSON. It is optional and only needed for sources that serve scrambled or sliced tiles.
+  </Tab>
+</Tabs>
+
+---
+
+### `get_metadata()`
+
+Returns static information identifying the source.
+
+<ParamField body="returns" type="string">
+  JSON-serialized `SourceMetadata`. See [Data Schemas](/spec/data-schemas) for the full interface.
+</ParamField>
+
+```json
+{
+  "id": "asura-scans",
+  "name": "Asura Scans",
+  "version": "1.0.4",
+  "abiVersion": 1,
+  "lang": "en",
+  "baseUrl": "https://asuracomic.net",
+  "iconUrl": "https://example.com/icon.png",
+  "nsfw": false
+}
+```
+
+---
+
+### `get_filters()`
+
+Returns an array of `FilterSchema` objects that describe the source's search capabilities.
+
+<ParamField body="returns" type="string">
+  JSON array of `SelectFilter | TriStateFilter | CheckboxFilter | TextFilter`. See [Data Schemas](/spec/data-schemas) for definitions.
+</ParamField>
+
+```json
+[
+  {
+    "id": "sort",
+    "title": "Sort by",
+    "type": "select",
+    "options": [
+      { "label": "Latest", "value": "latest" },
+      { "label": "Popular", "value": "popular" }
+    ],
+    "default": "latest"
+  },
+  {
+    "id": "genres",
+    "title": "Genres",
+    "type": "tri_state",
+    "options": [
+      { "label": "Action", "value": "Action" },
+      { "label": "Romance", "value": "Romance" }
+    ],
+    "default": { "Action": "+" }
+  }
+]
+```
+
+---
+
+### `search(query_json)`
+
+Performs keyword searches, tag filtering, and pagination.
+
+<ParamField body="query_json" type="string" required>
+  A `SearchQuery` object.
+</ParamField>
+
+<ParamField body="returns" type="string">
+  `PluginResult<PageResult<MangaItem>>` JSON.
+</ParamField>
+
+**Input example:**
+
+```json
+{
+  "query": "Solo",
+  "page": 1,
+  "filters": {
+    "sort": "latest",
+    "genres": {
+      "Action": "+",
+      "Romance": "-"
+    },
+    "status": "Ongoing"
+  }
+}
+```
+
+**Success response:**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "page": 1,
+    "hasNextPage": true,
+    "items": [
+      {
+        "id": "solo-leveling",
+        "title": "Solo Leveling",
+        "coverUrl": "https://cdn.example.com/cover.jpg"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### `get_details(manga_id)`
+
+Fetches complete metadata and chapter listings for a specific title.
+
+<ParamField body="manga_id" type="string" required>
+  The source-scoped manga identifier.
+</ParamField>
+
+<ParamField body="returns" type="string">
+  `PluginResult<MangaDetails>` JSON.
+</ParamField>
+
+**Success response:**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "solo-leveling",
+    "title": "Solo Leveling",
+    "status": "Completed",
+    "coverUrl": "https://cdn.example.com/cover.jpg",
+    "chapters": [
+      {
+        "id": "ch-1",
+        "number": 1,
+        "title": "The Weakest Hunter"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### `get_pages(chapter_id)`
+
+Fetches the ordered list of image pages for a given chapter.
+
+<ParamField body="chapter_id" type="string" required>
+  The source-scoped chapter identifier.
+</ParamField>
+
+<ParamField body="returns" type="string">
+  `PluginResult<PageItem[]>` JSON.
+</ParamField>
+
+**Success response:**
+
+```json
+{
+  "ok": true,
+  "data": [
+    {
+      "index": 0,
+      "url": "https://cdn.example.com/01.jpg",
+      "isScrambled": false
+    },
+    {
+      "index": 1,
+      "url": "https://cdn.example.com/02.jpg",
+      "isScrambled": true,
+      "metadata": {
+        "layout": "slice",
+        "rows": 4,
+        "cols": 4,
+        "tileW": 200,
+        "tileH": 300,
+        "order": [5, 2, 8, 1, 0, 3, 6, 7, 4, 9, 10, 11, 12, 13, 14, 15]
+      }
+    }
+  ]
+}
+```
+
+---
+
+### `unscramble_image(raw_bytes)` (Optional)
+
+Takes raw image bytes of a scrambled puzzle tile, reconstructs the original layout, and returns standard clean image bytes.
+
+<ParamField body="raw_bytes" type="bytes" required>
+  The scrambled image buffer. Maximum 16 MB raw bytes (8192 x 8192 px).
+</ParamField>
+
+<ParamField body="returns" type="bytes">
+  Clean image bytes (`image/jpeg` or `image/png`).
+</ParamField>
+
+#### Failure convention
+
+If the input cannot be reconstructed, the plugin must return a **zero-length byte buffer**. The host then reports `UNSCRAMBLE_FAILED` and skips rendering the tile.
+
+#### Memory constraints
+
+Each plugin instance is granted a **64 MB** Extism memory budget. Input buffers to `unscramble_image` are capped at **16 MB raw bytes / 8192 x 8192 px**. If an image exceeds these limits, the host rejects the call with `MEMORY_LIMIT_EXCEEDED`.

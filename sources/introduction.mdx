@@ -1,3 +1,74 @@
 ---
-title: "introduction"
+title: "MakiNuki Sources: Reference Plugin Collection"
+sidebarTitle: "Introduction"
+description: "The makinuki/sources repository hosts 12 reference WASM source plugins built with the PDK. Learn the layout and how each plugin implements the frozen ABI 1 contract."
 ---
+
+The `makinuki/sources` repository is the official collection of reference source plugins for the MakiNuki manga reader stack. Each plugin is built with the [Plugin Development Kit](/pdk/introduction), compiled to a sandboxed WASM module, and published to the public registry. You can use these plugins as-is, study them as working examples, or fork them to create your own sources.
+
+## Repository layout
+
+```text
+sources/
+├── sources/
+│   ├── asurascans/
+│   ├── atsumaru/
+│   ├── batcave/
+│   ├── cubari/
+│   ├── kagane/
+│   ├── mangaball/
+│   ├── mangadex/
+│   ├── mangadotnet/
+│   ├── mangafire/
+│   ├── mangakakalot/
+│   ├── omegascans/
+│   └── weebcentral/
+├── scripts/
+│   ├── build.ts      # batch compiler: sources/* -> dist/*.wasm
+│   └── release.sh    # per-plugin release script
+├── dist/             # compiled .wasm outputs (gitignored)
+└── package.json
+```
+
+Every subdirectory under `sources/` is one independent plugin package with its own `package.json`, `src/index.ts` entry point, `CHANGELOG.md`, and optional `test.json` fixture.
+
+## Shipped reference sources
+
+| Plugin | Approach | Notes |
+| --- | --- | --- |
+| `asurascans` | REST API | Asura Scans API with per-series chapter pagination |
+| `atsumaru` | HTML scraping | Atsumaru reader with DOM parsing |
+| `batcave` | HTML scraping | Gated by anti-bot challenge (`challengeGated: true`) |
+| `cubari` | Aggregator | Multi-host aggregator with `allowedHosts` spanning dozens of CDNs |
+| `kagane` | HTML scraping | Multi-language source with rotating domains |
+| `mangaball` | HTML scraping | Simple manga reader scraper |
+| `mangadex` | REST API | MangaDex official API with cover size variants and blocked-group filtering |
+| `mangadotnet` | HTML scraping | Manga reader site scraper |
+| `mangafire` | HTML scraping | Gated by anti-bot challenge |
+| `mangakakalot` | HTML scraping | Classic manga reader scraper |
+| `omegascans` | HTML scraping | Omega Scans reader |
+| `weebcentral` | HTML scraping | Gated by anti-bot challenge |
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Building" icon="hammer" href="/sources/building">
+    Compile every plugin from TypeScript to WASM with a single command.
+  </Card>
+
+  <Card title="Testing" icon="vial" href="/sources/testing">
+    Run the conformance runner against live sources with schema validation.
+  </Card>
+
+  <Card title="Releasing" icon="tag" href="/sources/releasing">
+    Cut and tag a semver release for one plugin at a time.
+  </Card>
+
+  <Card title="Registry" icon="globe" href="/sources/registry/overview">
+    Browse the public registry that hosts distribute to end users.
+  </Card>
+
+  <Card title="PDK" icon="code" href="/pdk/introduction">
+    Write your own plugin from scratch with the Plugin Development Kit.
+  </Card>
+</CardGroup>

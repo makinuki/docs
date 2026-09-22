@@ -1,3 +1,72 @@
 ---
-title: "releasing"
+title: "Release MakiNuki Source Plugins with SemVer Tagging"
+sidebarTitle: "Releasing"
+description: "Cut per-plugin releases using scripts/release.sh. The script validates the tree, runs build and conformance tests, bumps the version, folds the changelog, and creates an annotated tag."
 ---
+
+Each source plugin in the `makinuki/sources` repository is released independently. There is no repo-wide version. A plugin's version lives in the metadata constant inside `sources/<id>/src/index.ts`, and its history is recorded in `sources/<id>/CHANGELOG.md`.
+
+## Release flow
+
+<Steps>
+  <Step title="Prepare the changelog">
+    Write your changes under the `[Unreleased]` heading in `sources/<id>/CHANGELOG.md`. Do not bump the version yourself. The release script handles that.
+  </Step>
+  <Step title="Cut the release">
+    Run the release script with a bump level or an explicit version:
+
+    ```bash
+    scripts/release.sh <id> patch
+    scripts/release.sh <id> minor
+    scripts/release.sh <id> major
+    scripts/release.sh <id> 1.2.3
+    ```
+
+    The script performs the following guards and actions:
+
+    - Requires a clean working tree on the `master` branch
+    - Rejects releases with no source or manifest changes since the previous `<id>-v*` tag
+    - Refuses versions that collide with or undercut any existing `<id>-v*` tag
+    - Runs `pnpm typecheck`, `pnpm build`, and `pnpm test <id>`
+    - Rewrites the `version` field in `sources/<id>/src/index.ts`
+    - Folds `[Unreleased]` into a dated section in the changelog
+    - Commits the changes and creates an annotated `<id>-vX.Y.Z` tag
+  </Step>
+  <Step title="Push to origin">
+    Publish the commit and tag:
+
+    ```bash
+    git push --follow-tags origin master
+    ```
+  </Step>
+</Steps>
+
+## First release
+
+A plugin that carries no prior release tag may be cut at the version it already declares. For example, if `src/index.ts` declares `version: "1.0.0"` and no `asurascans-v*` tag exists yet:
+
+```bash
+scripts/release.sh asurascans 1.0.0
+```
+
+Every subsequent release must exceed the current declared version.
+
+## GitHub pipelines
+
+Two workflows run on every push:
+
+1. **Master push pipeline**
+   - Rebuilds all plugins
+   - Runs conformance tests against every plugin
+   - Regenerates and republishes the `makinuki.github.io` registry
+   - Unchanged plugins keep their existing version and artifact
+2. **Tag push pipeline** (`<id>-vX.Y.Z`)
+   - Verifies that the built plugin metadata matches the tag version
+   - Deploys the updated registry
+   - Creates a GitHub Release named after the tag
+   - Attaches `dist/wasm/<id>-v<version>.wasm` as an artifact
+   - Copies the matching changelog section into the release notes
+
+<Info>
+  Registry deployments are serialized through a single queue, so concurrent releases cannot overwrite each other on the Pages repository. The pipeline also enforces that no plugin version ever moves backwards.
+</Info>

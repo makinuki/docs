@@ -1,3 +1,117 @@
 ---
-title: "index-format"
+title: "Registry Index Format: index.json Structure and Fields"
+sidebarTitle: "Index Format"
+description: "index.json is the MakiNuki registry manifest. Learn its top-level fields, the SourceEntry schema, and how allowedHosts feeds transport proxies for image and CDN requests."
 ---
+
+The `index.json` file at `https://makinuki.github.io/index.json` is the single registry manifest that hosts consume to discover and download source plugins. It is versioned as a whole and regenerated on every master push or release tag push.
+
+## Top-level structure
+
+```json index.json
+{
+  "version": 1,
+  "updatedAt": 1789230054,
+  "sources": [
+    {
+      "id": "cubari",
+      "name": "Cubari",
+      "version": "1.0.1",
+      "abiVersion": 1,
+      "lang": "multi",
+      "baseUrl": "https://cubari.moe",
+      "iconUrl": "https://cubari.moe/static/favicon.png",
+      "nsfw": false,
+      "wasmUrl": "https://makinuki.github.io/wasm/cubari-v1.0.1.wasm",
+      "sha256": "fb90fd4770ec24cbccbdef9253c76b45d4665ce6e8f0ac98f9b3b59e347a74bb",
+      "minRuntimeVersion": "1.0.0",
+      "allowedHosts": [
+        "cubari.moe",
+        "services.f-ck.me",
+        "files.catbox.moe",
+        "imgur.com",
+        "i.imgur.com",
+        "redd.it",
+        "i.redd.it",
+        "preview.redd.it",
+        "cdn.discordapp.com",
+        "media.discordapp.net",
+        "mangadex.org",
+        "uploads.mangadex.org",
+        "drive.google.com",
+        "lh3.googleusercontent.com",
+        "i.gyazo.com",
+        "i.ibb.co",
+        "imgchest.com",
+        "cdn.imgchest.com",
+        "githubusercontent.com",
+        "raw.githubusercontent.com"
+      ]
+    }
+  ]
+}
+```
+
+## Top-level fields
+
+<ParamField path="version" type="integer" required>
+  Registry manifest format version. Currently fixed at `1`.
+</ParamField>
+
+<ParamField path="updatedAt" type="integer" required>
+  Unix timestamp in seconds indicating when the manifest was last generated.
+</ParamField>
+
+<ParamField path="sources" type="SourceEntry[]" required>
+  Array of source plugin entries. Each entry describes one published plugin and how to fetch it.
+</ParamField>
+
+## Source entry fields
+
+<ParamField path="id" type="string" required>
+  Unique plugin slug, matching the pattern `^[a-z0-9]+(-[a-z0-9]+)*$`.
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Human-readable display name, e.g. `"Asura Scans"`.
+</ParamField>
+
+<ParamField path="version" type="string" required>
+  Plugin version as SemVer, e.g. `"1.1.4"`.
+</ParamField>
+
+<ParamField path="abiVersion" type="integer" required>
+  ABI contract version the plugin was built against. Must equal the host ABI version at runtime.
+</ParamField>
+
+<ParamField path="lang" type="string" required>
+  ISO 639-1 language code, e.g. `"en"` or `"ja"`, or `"multi"` for multi-language sources.
+</ParamField>
+
+<ParamField path="baseUrl" type="string (uri)" required>
+  Canonical website URL of the source.
+</ParamField>
+
+<ParamField path="iconUrl" type="string (uri)" required>
+  URL or base64 data URI of the source icon.
+</ParamField>
+
+<ParamField path="nsfw" type="boolean" required>
+  `true` when the source primarily hosts 18+ content.
+</ParamField>
+
+<ParamField path="wasmUrl" type="string (uri)" required>
+  Direct HTTPS URL to the compiled `.wasm` artifact.
+</ParamField>
+
+<ParamField path="sha256" type="string" required>
+  Hex-encoded SHA-256 digest of the `.wasm` binary. Hosts should verify the download against this value before execution.
+</ParamField>
+
+<ParamField path="minRuntimeVersion" type="string" required>
+  Minimum runtime package semver required to load the plugin. This is independent of `abiVersion`.
+</ParamField>
+
+<ParamField path="allowedHosts" type="string[]">
+  Additional image or CDN hostnames the source uses beyond `baseUrl`. Transport proxies use this list to decide which outbound requests to proxy on behalf of the plugin. For example, a source that pulls chapter images from `i.imgur.com` should include that hostname here. See [Worker Proxy Security](/runtime/worker-proxy/security) for how proxies enforce host allowlisting.
+</ParamField>

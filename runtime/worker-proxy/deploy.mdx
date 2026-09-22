@@ -1,3 +1,118 @@
 ---
-title: "deploy"
+title: "Deploy the MakiNuki Worker Proxy to Cloudflare"
+sidebarTitle: "Deploy"
+description: "Deploy the MakiNuki Worker Proxy via one-click Deploy to Workers, manual Wrangler CLI, or automated GitHub Actions with required secrets."
 ---
+
+This guide covers three ways to deploy the MakiNuki Worker Proxy: the fastest one-click button, manual Wrangler CLI, and an optional GitHub Actions workflow for continuous deployment.
+
+<Steps>
+  <Step title="One-click deploy (fastest)">
+    Click the button below to open Cloudflare's Deploy to Workers flow. It pulls the repository, asks for a worker name, and lets you configure environment variables in the dashboard. No local tooling or GitHub secrets are required.
+
+    <img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare Workers" />
+
+    <Tip>
+      The `CLIENT_TOKEN` you enter is yours alone and never leaves your Cloudflare account.
+    </Tip>
+  </Step>
+  <Step title="Configure `.dev.vars` for local development">
+    Before deploying, create a `.dev.vars` file in the `worker-proxy/` directory. Wrangler reads this file for local development and secrets.
+
+    ```ini .dev.vars
+    CLIENT_TOKEN=dev-token
+    CLIENT_ORIGINS=https://app.example.com,http://127.0.0.1:5173
+    EXTRA_ALLOWED_HOSTS=cdn.example.net
+    ```
+
+    <Note>
+      `.dev.vars` is gitignored.
+    </Note>
+  </Step>
+  <Step title="Install dependencies">
+    ```bash
+    pnpm install
+    ```
+  </Step>
+  <Step title="Deploy with Wrangler">
+    Export your Cloudflare credentials and run the deploy command:
+
+    ```bash
+    export CF_API_TOKEN=your_cloudflare_api_token
+    export CF_ACCOUNT_ID=your_account_id
+    pnpm deploy
+    ```
+
+    Then set the `CLIENT_TOKEN` secret:
+
+    ```bash
+    echo "your-dev-token" | pnpm wrangler secret put CLIENT_TOKEN
+    ```
+
+    <Warning>
+      `CLIENT_TOKEN` must be set via `wrangler secret put`. Do not put it in `wrangler.toml` or `.dev.vars` for production.
+    </Warning>
+  </Step>
+  <Step title="Optional: enable GitHub Actions CI">
+    The repository includes `.github/workflows/deploy.yml`. It runs on every push to `master` (or manually). The workflow typechecks, tests, and then deploys only when the following secrets exist:
+
+    | Secret | Purpose |
+    | --- | --- |
+    | `CF_API_TOKEN` | Deploys the Worker (needs Workers Scripts:Edit) |
+    | `CF_ACCOUNT_ID` | Cloudflare account identifier |
+    | `CLIENT_TOKEN` | Written to the deployed worker as a secret |
+
+    Without these secrets, the workflow acts as a pure CI gate.
+
+    ```yaml .github/workflows/deploy.yml
+    # Excerpt from the repository workflow
+    - name: Deploy
+      if: env.CF_API_TOKEN && env.CF_ACCOUNT_ID
+      run: pnpm deploy
+    - name: Set secret
+      if: env.CF_API_TOKEN && env.CF_ACCOUNT_ID && env.CLIENT_TOKEN
+      run: echo "$CLIENT_TOKEN" | pnpm wrangler secret put CLIENT_TOKEN
+    ```
+
+    Add the three secrets in your repository's **Settings > Secrets and variables > Actions**.
+  </Step>
+</Steps>
+
+## Verify the deployment
+
+After deploying, test the health endpoint:
+
+```bash
+curl https://your-worker.workers.dev/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "ok",
+  "version": "1.0.0",
+  "allowlistCount": 42
+}
+```
+
+Then configure the runtime to use your worker:
+
+```ts app.ts
+const runtime = new MakiNukiRuntime({
+  transport: {
+    pin: "worker",
+    proxyUrl: "https://your-worker.workers.dev/proxy",
+    clientToken: "your-dev-token",
+  },
+});
+```
+
+## Required permissions
+
+Your Cloudflare API token needs:
+
+- **Workers Scripts:Edit**
+- **Account:Settings:Read**
+
+These are selected when creating the token in the Cloudflare dashboard under **My Profile > API Tokens**.

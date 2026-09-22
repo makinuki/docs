@@ -1,3 +1,161 @@
 ---
-title: "api"
+title: "MakiDoku local REST API reference"
+sidebarTitle: "API"
+description: "Complete endpoint reference for the MakiDoku local REST API on 127.0.0.1:6254. Covers health, sources, library, downloads, trackers, backups, settings, and more."
 ---
+
+MakiDoku exposes a local REST API on `http://127.0.0.1:6254`. The base path is `/api`. All responses use JSON. Errors follow the standard MakiNuki envelope:
+
+```json
+{"error": {"code": "...", "message": "..."}}
+```
+
+## Health
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/health` | Daemon health, version, commit, and database status |
+
+## Sources
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/sources` | List installed sources |
+| `GET` | `/api/sources/catalog` | View registry catalog with local state |
+| `POST` | `/api/sources/install` | Install from catalog id or local path |
+| `POST` | `/api/sources/update-all` | Update all compatible sources |
+| `GET` | `/api/sources/{id}` | Get one installed source |
+| `PATCH` | `/api/sources/{id}` | Update source metadata (e.g. pinned) |
+| `DELETE` | `/api/sources/{id}` | Uninstall a source |
+| `GET` | `/api/sources/{id}/icon` | Fetch cached source icon |
+| `POST` | `/api/sources/{id}/update` | Update one source to latest |
+| `GET` | `/api/sources/{id}/filters` | List source browse filters |
+| `GET` | `/api/sources/{id}/search` | Search source (`?q=&page=&filters=`) |
+| `POST` | `/api/sources/{id}/clearance` | Submit anti-bot clearance |
+
+## Library
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/library` | List library titles |
+| `POST` | `/api/library/bulk/read` | Bulk mark read/unread |
+| `POST` | `/api/library/bulk/library` | Bulk add/remove from library |
+| `POST` | `/api/library/bulk/category` | Bulk set category |
+| `POST` | `/api/library/bulk/download` | Bulk enqueue downloads |
+| `DELETE` | `/api/library/bulk` | Bulk remove from library |
+| `GET` | `/api/manga/{mangaID}` | Get title details aggregate |
+| `GET` | `/api/manga/{mangaID}/cover` | Serve title cover image |
+| `POST` | `/api/manga/{mangaID}/library` | Add title to library |
+| `DELETE` | `/api/manga/{mangaID}/library` | Remove title from library |
+| `PATCH` | `/api/manga/{mangaID}/downloads` | Toggle auto-download |
+| `PATCH` | `/api/manga/{mangaID}/reader` | Store reader overrides |
+| `POST` | `/api/manga/{mangaID}/refresh` | Refresh title from source |
+| `POST` | `/api/manga/{mangaID}/categories/{categoryID}` | Add to category |
+| `DELETE` | `/api/manga/{mangaID}/categories/{categoryID}` | Remove from category |
+| `GET` | `/api/history` | Reading history |
+| `DELETE` | `/api/history/{eventID}` | Delete history event |
+| `GET` | `/api/stats` | Reading statistics |
+| `POST` | `/api/chapters/{chapterID}/read` | Mark chapter read/unread |
+| `POST` | `/api/manga/{mangaID}/chapters/read` | Mark all chapters read |
+| `GET` | `/api/categories` | List categories |
+| `POST` | `/api/categories` | Create category |
+| `PATCH` | `/api/categories/{categoryID}` | Update category |
+| `DELETE` | `/api/categories/{categoryID}` | Delete category |
+
+## Reader pages
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/chapters/{chapterID}/pages` | List pages (`?refresh=1` to force fetch) |
+| `GET` | `/api/pages/{pageID}/image` | Serve page image (proxied and cached) |
+
+## Metadata
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `PATCH` | `/api/manga/{mangaID}/custom` | Update custom info |
+| `POST` | `/api/chapters/{chapterID}/bookmark` | Toggle chapter bookmark |
+| `GET` | `/api/manga/{mangaID}/sources` | List merged sources |
+| `POST` | `/api/manga/{mangaID}/sources` | Add merged source |
+| `DELETE` | `/api/manga/{mangaID}/sources/{mergeID}` | Remove merged source |
+| `GET` | `/api/manga/{mangaID}/metadata` | Get metadata, titles, and tags |
+| `GET` | `/api/feeds` | List browse feeds |
+| `GET` | `/api/saved-searches` | List saved searches |
+| `POST` | `/api/saved-searches` | Create saved search |
+| `DELETE` | `/api/saved-searches/{searchID}` | Delete saved search |
+
+## Downloads
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/download` | Queue snapshot with stats |
+| `POST` | `/api/download` | Enqueue chapters for download |
+| `POST` | `/api/download/clear` | Clear finished items |
+| `GET` | `/api/download/events` | WebSocket: real-time events |
+| `POST` | `/api/download/{itemID}/pause` | Pause item |
+| `POST` | `/api/download/{itemID}/resume` | Resume item |
+| `POST` | `/api/download/{itemID}/cancel` | Cancel item |
+| `POST` | `/api/download/{itemID}/retry` | Retry failed item |
+
+## Trackers
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/trackers` | List tracker providers and connection state |
+| `GET` | `/api/trackers/events` | WebSocket: credential-change events |
+| `GET` | `/api/trackers/{trackerType}/search` | Search tracker (`?q=`) |
+| `POST` | `/api/trackers/{trackerType}/token` | Save token/PAT credentials |
+| `POST` | `/api/trackers/{trackerType}/login` | Username/password login |
+| `DELETE` | `/api/trackers/{trackerType}/credentials` | Delete stored credentials |
+| `GET` | `/api/trackers/{trackerType}/auth/start` | Start OAuth flow |
+| `GET` | `/api/trackers/{trackerType}/auth/callback` | OAuth callback |
+| `GET` | `/api/manga/{mangaID}/trackers` | List tracker bindings |
+| `POST` | `/api/manga/{mangaID}/trackers/{trackerType}/bind` | Bind tracker to title |
+| `PATCH` | `/api/manga/{mangaID}/trackers/{trackerType}` | Update binding (score, dates) |
+| `DELETE` | `/api/manga/{mangaID}/trackers/{trackerType}` | Remove binding |
+| `GET` | `/api/manga/{mangaID}/trackers/status` | Fetch tracker statuses |
+| `GET` | `/api/manga/{mangaID}/suggestions` | AniList recommendations |
+| `GET` | `/api/tracker-sync` | List pending sync jobs |
+| `GET` | `/api/progress/{mangaID}` | Get reading progress |
+| `POST` | `/api/progress` | Update reading progress |
+| `POST` | `/api/progress/complete` | Mark chapter completed |
+
+## Backups
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/export` | Export JSON backup |
+| `POST` | `/api/import` | Import JSON backup |
+| `POST` | `/api/backup/tachibackup/validate` | Validate a `.tachibk` upload |
+| `POST` | `/api/backup/tachibackup/import` | Import a `.tachibk` backup |
+
+## Settings
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/settings` | List all settings |
+| `PUT` | `/api/settings/{key}` | Update one setting |
+| `POST` | `/api/settings/reset` | Reset settings to defaults |
+
+## Updates
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/updates` | List update feed |
+| `GET` | `/api/updates/state` | Get updater state |
+| `POST` | `/api/updates/run` | Run library update now |
+| `POST` | `/api/updates/ack` | Acknowledge updates |
+
+## Privacy
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/incognito` | Get incognito mode state |
+| `POST` | `/api/incognito` | Set incognito mode |
+
+## Migration
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/migration/sources` | List migration source mappings |
+| `GET` | `/api/migration/sources/{sourceID}/manga` | List manga for a migration source |

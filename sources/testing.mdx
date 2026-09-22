@@ -1,3 +1,57 @@
 ---
-title: "testing"
+title: "Test MakiNuki Source Plugins with the Conformance Runner"
+sidebarTitle: "Testing"
+description: "Run pnpm test [id] to validate plugin output against JSON schemas using live network calls. Learn how challengeGated works and how to pass browser credentials for gated sources."
 ---
+
+The conformance test runner exercises every plugin export against live source websites and asserts payloads against the canonical JSON Schemas shipped in `@makinuki/spec`. Because tests hit real endpoints, a network connection is required and results may vary from one network to another.
+
+## Run the tests
+
+Test every built plugin in `dist/`:
+
+```bash
+pnpm test
+```
+
+Scope the run to one or more specific plugins by passing their ids as positional arguments:
+
+```bash
+pnpm test mangadex
+pnpm test mangadex asurascans cubari
+```
+
+## Per-plugin test fixtures
+
+Each source can pin the locators the runner exercises in `sources/<id>/test.json`. The file is optional and supports four fields:
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `search` | string | Query passed to the `search` export |
+| `details` | string | Manga id passed to `get_details` |
+| `pages` | string | Chapter id passed to `get_pages` |
+| `challengeGated` | boolean | Flags that the source requires a browser to reach |
+
+If `test.json` is absent, the runner uses a default query and probes the first few search results for a title that carries chapters.
+
+## Challenge-gated sources
+
+Some sources sit behind an anti-bot challenge (such as Cloudflare) that a headless runner cannot solve. Hosting and CI networks are challenged far more often than desktop connections, so a source can work perfectly from a browser and still be unreachable from the test pipeline.
+
+When a plugin sets `challengeGated: true` in its `test.json`, the runner reports `SKIP` instead of failing, as long as the plugin still answers with a well-formed envelope carrying the `CLOUDFLARE_BLOCKED` error code. Any other failure mode (a parse error, a different error code, or a non-conforming response) still fails the run, so regressions are caught.
+
+<Warning>
+  `challengeGated` is not an excuse to ignore failures. The plugin must still emit a correct `CLOUDFLARE_BLOCKED` envelope. A broken plugin still fails.
+</Warning>
+
+## Passing browser credentials
+
+To run the full conformance check against a gated source, solve the challenge in a real browser, copy the user agent and clearance cookie, and pass them as environment variables:
+
+```bash
+MAKINUKI_TEST_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 ..." \
+MAKINUKI_TEST_COOKIE="cf_clearance=<your_clearance_value>" \
+  pnpm test weebcentral
+```
+
+The runner sends these values on outgoing requests, letting the source see a browser-like identity and bypass the challenge.

@@ -1,3 +1,63 @@
 ---
-title: "introduction"
+title: "MakiDoku: portable manga library and downloader"
+sidebarTitle: "Introduction"
+description: "MakiDoku is a portable Go binary that hosts MakiNuki WASM plugins, manages your manga library in SQLite, and serves an embedded React reader over a local REST API."
 ---
+
+MakiDoku (巻読) is a single-binary manga library, reader, and batch downloader. It hosts MakiNuki WASM plugins through Extism, stores your library in SQLite with WAL mode, and serves an embedded React 19 reader over a local REST API. You can run it headlessly from the command line or open your browser to the local address and use the full web UI.
+
+## What MakiDoku provides
+
+<CardGroup cols={2}>
+  <Card title="Cobra CLI" icon="terminal" href="/makidoku/cli">
+    Install sources, download chapters, sync trackers, export backups, and run the daemon from a single binary.
+  </Card>
+
+  <Card title="SQLite WAL storage" icon="database" href="/makidoku/configuration">
+    Persistent library, reading history, categories, download queue, and tracker bindings with fast writes.
+  </Card>
+
+  <Card title="WASM plugin host" icon="puzzle-piece" href="/spec">
+    Hosts MakiNuki plugins on Extism with a 64 MB instance budget and a per-source instance pool.
+  </Card>
+
+  <Card title="Registry client" icon="globe" href="/sources/registry">
+    Installs sources from a catalog with SHA-256 verification and ABI version enforcement.
+  </Card>
+
+  <Card title="Local REST API" icon="bolt" href="/makidoku/api">
+    Source management, browsing, downloads, trackers, backups, and reader images on `127.0.0.1:6254`.
+  </Card>
+
+  <Card title="Persistent downloader" icon="download" href="/makidoku/downloads">
+    Queue stored in SQLite with CBZ, ComicInfo.xml, or extracted folder output; pause, resume, and cancel.
+  </Card>
+
+  <Card title="Tracker sync" icon="rotate" href="/makidoku/trackers">
+    AniList, MyAnimeList, MangaBaka, MangaUpdates, and Kitsu with encrypted credentials.
+  </Card>
+
+  <Card title="Anti-bot handling" icon="shield-halved" href="/makidoku/anti-bot">
+    Submit `cf_clearance` cookies and browser user agents so sources can stay reachable.
+  </Card>
+</CardGroup>
+
+## Upcoming features
+
+The project roadmap includes single-binary embedding with no external dependencies and system tray integration for desktop use.
+
+## Explore MakiDoku
+
+<CardGroup cols={3}>
+  <Card title="Quickstart" icon="rocket" href="/makidoku/quickstart">
+    Build the web UI and start the daemon in minutes.
+  </Card>
+
+  <Card title="CLI reference" icon="terminal" href="/makidoku/cli">
+    Every Cobra command with flags and real examples.
+  </Card>
+
+  <Card title="Configuration" icon="sliders" href="/makidoku/configuration">
+    Environment variables, CLI flags, and data directory layout.
+  </Card>
+</CardGroup>

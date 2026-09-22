@@ -1,3 +1,78 @@
 ---
-title: "architecture"
+title: "ABI 1 Architecture: Host Imports, Plugin Exports, and Memory"
+sidebarTitle: "Architecture"
+description: "Learn how ABI 1 separates host and plugin responsibilities, with the makinuki namespace, per-source storage, and strict 64 MB memory budgets."
 ---
+
+The ABI 1 contract defines a strict boundary between the host runtime and each MakiNuki plugin. Hosts provide sandboxed I/O. Plugins provide scraper logic. They communicate through JSON strings across the Extism memory boundary, with the exception of raw image bytes for unscrambling. This page reproduces the contract diagram, lists every host import and plugin export, and explains the memory and sandbox rules.
+
+## Contract Diagram
+
+```text
+┌────────────────────────────────────────────────────────┐
+│                      Host Runtime                      │
+│                                                        │
+│  Host Imports (Namespace: "makinuki"):                 │
+│    • makinuki_fetch(request_json) -> response_json     │
+│    • makinuki_storage_get(key_string) -> value_string  │
+│    • makinuki_storage_set(kv_json) -> void             │
+│    • makinuki_log(log_json) -> void                    │
+└───────────────────────────┬────────────────────────────┘
+                            │ Memory Buffer (JSON)
+┌───────────────────────────▼────────────────────────────┐
+│                  MakiNuki Plugin (.wasm)               │
+│                                                        │
+│  Plugin Exports:                                       │
+│    • get_metadata() -> SourceMetadata                  │
+│    • get_filters() -> FilterSchema[]                   │
+│    • search(query_json) -> PageResult<MangaItem>       │
+│    • get_details(manga_id_string) -> MangaDetails      │
+│    • get_pages(chapter_id_string) -> PageItem[]        │
+│    • [Optional] unscramble_image(raw_bytes) -> bytes   │
+└────────────────────────────────────────────────────────┘
+```
+
+## Host Imports Namespace
+
+All host functions reside under the module namespace `"makinuki"`. Plugins declare these imports at compile time and call them as ordinary functions. The host runtime implements them using its own stack:
+
+| Import | Purpose |
+| :-- | :-- |
+| `makinuki_fetch` | HTTP requests via the host's network stack (browser fetch, OkHttp, Reqwest, or a relay). |
+| `makinuki_storage_get` | Read a string from host storage, scoped to the current source ID. |
+| `makinuki_storage_set` | Write a string to host storage, scoped to the current source ID. |
+| `makinuki_log` | Emit a debug/info/warn/error line to the host console or debugger. |
+
+See [Host Imports](/spec/host-imports) for full input/output shapes and semantics.
+
+## Plugin Exports Overview
+
+Every ABI 1 plugin must export these functions. Static exports return raw JSON. Dynamic exports wrap their payloads in the `PluginResult<T>` envelope so hosts can distinguish success from failure without catching exceptions.
+
+| Export | Type | Returns |
+| :-- | :-- | :-- |
+| `get_metadata()` | Static | `SourceMetadata` JSON |
+| `get_filters()` | Static | `FilterSchema[]` JSON |
+| `search(query_json)` | Dynamic | `PluginResult<PageResult<MangaItem>>` JSON |
+| `get_details(manga_id)` | Dynamic | `PluginResult<MangaDetails>` JSON |
+| `get_pages(chapter_id)` | Dynamic | `PluginResult<PageItem[]>` JSON |
+| `unscramble_image(bytes)` | Optional raw bytes | Clean image bytes (zero-length on failure) |
+
+See [Plugin ABI](/spec/plugin-abi) for parameters, examples, and failure conventions.
+
+## Per-Source Storage Namespace
+
+Storage keys are automatically scoped to the current source ID. Two plugins from different sources may use the same key name (for example, `"session_token"`) without collision. The host enforces this by prefixing or partitioning keys internally. Plugins never see the prefix; they simply read and write keys as if they own the namespace.
+
+## Memory Budgets
+
+| Budget | Limit | Trigger |
+| :-- | :-- | :-- |
+| Instance total | 64 MB | Extism rejects allocations that would exceed this. |
+| Image buffer input | 16 MB raw bytes / 8192 x 8192 px | Host rejects `unscramble_image` with `MEMORY_LIMIT_EXCEEDED`. |
+
+Hosts should measure the raw byte length of the buffer before copying it into WASM memory. If a source legitimately serves tiles larger than 16 MB, the host skips that tile and reports `UNSCRAMBLE_FAILED`.
+
+## Sandbox Permissions
+
+Plugins are restricted to calling only the declared host functions listed above. They cannot open sockets, read files, access the DOM, or invoke any system call. The Extism runtime enforces this at the Wasmtime/WasmEdge boundary. If a plugin tries to import a function outside the `makinuki` namespace, instantiation fails before any export is called.

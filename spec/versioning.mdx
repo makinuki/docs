@@ -1,3 +1,45 @@
 ---
-title: "versioning"
+title: "ABI 1 Versioning Policy: Bump Rules and Freeze"
+sidebarTitle: "Versioning"
+description: "ABI 1 versioning rules: abiVersion as the single source of truth, bump rules for breaking changes, coexistence, and the 1.0.0 decision log."
 ---
+
+The `abiVersion` integer is the single source of truth for contract compatibility between plugins and host runtimes. This page explains how it is incremented, how multiple ABI versions coexist in the registry, and why ABI 1 is frozen. It also records the six ratified decisions from the 1.0.0 release and notes the one feature explicitly deferred to ABI 2.
+
+## abiVersion as the Single Source of Truth
+
+When a host runtime loads a plugin, it compares the plugin's `abiVersion` (from `get_metadata()` and from the registry entry) to its own supported ABI version. If they do not match exactly, the host rejects the plugin. `minRuntimeVersion` (also in the registry entry) is the runtime _package_ SemVer floor and is not a contract axis. A plugin may target ABI 1 while requiring a newer runtime package.
+
+## Bump Rules
+
+- **Breaking change:** any change to exported function signatures, host imports, envelope semantics, or required schemas must increment `abiVersion` by 1.
+- **Non-breaking addition:** new optional fields, optional exports, or new standardized error codes must **not** bump `abiVersion`. They must be marked optional and remain backward compatible.
+
+Because ABI 1 is frozen, no further bump is expected until ABI 2 is introduced.
+
+## Coexistence
+
+The registry may serve multiple `abiVersion` values simultaneously. The `wasmUrl` field may encode the source version, for example `asura-scans-v1.0.4.wasm`. Hosts select entries whose `abiVersion === runtime.abiVersion` and then apply the [registry validation rules](/spec/registry).
+
+## ABI 1 Freeze
+
+<Note>
+  ABI 1 is **frozen**. The specification is approved and no breaking changes will be made. All repositories shipping ABI artifacts (`spec`, `pdk-ts`, `sources`) must document contract changes under a `CHANGELOG` heading per release.
+</Note>
+
+Freezing the ABI protects existing plugins and hosts from unexpected breakages. Sources compiled against ABI 1 will continue to work on any host that supports ABI 1, regardless of future runtime package updates.
+
+## Decision Log (1.0.0 Ratification)
+
+The following six decisions are recorded as ratified for ABI 1:
+
+1. **Plugin error envelope scope:** Dynamic exports wrap payloads in `PluginResult<T>` (Section 3.6). Static exports return raw JSON.
+2. **GET/HEAD-only transparent retry:** When a challenge is resolved, the host replays `GET` and `HEAD` requests automatically. `POST` and `PUT` are never auto-retried (Section 4.2).
+3. **64 MB instance / 16 MB input memory budgets:** Extism instance cap and `unscramble_image` buffer cap (Section 2.2).
+4. **Zero-length buffer + `UNSCRAMBLE_FAILED` convention:** `unscramble_image` returns an empty buffer on failure; the host reports `UNSCRAMBLE_FAILED` (Section 3.5).
+5. **`abiVersion` / `minRuntimeVersion` as two independent axes:** The ABI contract version and the runtime package floor are separate fields (Section 5.2).
+6. **`makinuki_parse_html` excluded from ABI 1:** No host-side HTML parsing import is provided in ABI 1.
+
+## Explicitly Out of ABI 1
+
+A host-side HTML parsing import (`makinuki_parse_html`) is deferred. If it is ever introduced, it ships as **ABI 2**. Plugins that need HTML parsing must do so inside the WASM module using their own parser library.

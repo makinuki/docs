@@ -1,3 +1,61 @@
 ---
-title: "introduction"
+title: "MakiNuki ABI 1: Safe, Sandboxed Manga Sources"
+sidebarTitle: "Introduction"
+description: "MakiNuki ABI 1 is a frozen WebAssembly contract that lets manga reader hosts run untrusted source plugins safely with sandboxed I/O and declarative UI."
 ---
+
+MakiNuki (巻抜き) is an open-source manga reader stack where scrapers compile to WebAssembly and run inside an Extism sandbox. ABI 1 is the frozen contract that governs how these plugins talk to the host. Hosts mediate every network request, storage operation, and log line. Plugins export a fixed set of functions to search, detail, and deliver manga. This page introduces the five architectural principles and the JSON-over-memory model that every ABI 1 source must follow.
+
+## Architectural Principles
+
+1. **Host-Sandboxed Execution**<br />Scrapers run as compiled `.wasm` modules managed by the Extism runtime. They have zero direct access to OS sockets, file systems, or DOM APIs.
+2. **Inverted I/O (Host-Driven Networking)**<br />All HTTP requests, cookie storage, and environment bridges are delegated to the host runtime via host imports in the `makinuki` namespace.
+3. **Language-Agnostic Source Development**<br />Scrapers can be written in any language supported by Extism PDKs (TypeScript, Go, Rust, Python, C, Zig) as long as they compile to standard `.wasm` exporting the MakiNuki ABI.
+4. **Declarative UI Filtering**<br />Filter systems are emitted as schema arrays. Host applications dynamically generate native UI components (dropdowns, tri-state checkboxes, search fields) without hardcoding source specifics.
+5. **Two-Tier Image Delivery**<br />Standard image streams bypass WASM memory via direct CDN URLs. Scrambled or sliced images are routed through an optional WASM `unscramble_image` hook only when necessary.
+
+## Extism + JSON-over-Memory Model
+
+ABI 1 exchanges data as JSON strings passed across the Extism memory boundary. Host functions live under the `makinuki` namespace. Plugin functions accept and return serialized JSON, except `unscramble_image`, which moves raw bytes.
+
+Because the contract is memory-bound, hosts enforce budgets: **64 MB per instance** and **16 MB per image buffer** (8192 x 8192 px max). If a plugin exceeds these limits, the host rejects the call with `MEMORY_LIMIT_EXCEEDED`.
+
+## Browse the specification
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="diagram-project" href="/spec/architecture">
+    Host imports namespace, plugin exports, memory budgets, and sandbox permissions.
+  </Card>
+
+  <Card title="Plugin ABI" icon="puzzle-piece" href="/spec/plugin-abi">
+    Every plugin export: signatures, payloads, and the PluginResult envelope.
+  </Card>
+
+  <Card title="Host Imports" icon="server" href="/spec/host-imports">
+    makinuki_fetch, makinuki_storage_get/set, and makinuki_log in full.
+  </Card>
+
+  <Card title="Data Schemas" icon="table" href="/spec/data-schemas">
+    TypeScript interfaces for metadata, filters, manga, chapters, pages, and results.
+  </Card>
+
+  <Card title="Error Codes" icon="triangle-exclamation" href="/spec/error-codes">
+    All 11 standardized error codes and the anti-bot challenge flow.
+  </Card>
+
+  <Card title="Registry" icon="globe" href="/spec/registry">
+    index.json manifest, validation rules, and security requirements.
+  </Card>
+
+  <Card title="Versioning" icon="code-branch" href="/spec/versioning">
+    abiVersion bump rules, freeze policy, and decision log for ABI 1.
+  </Card>
+
+  <Card title="PDK Introduction" icon="book-open" href="/pdk/introduction">
+    Start building a source plugin with the PDK.
+  </Card>
+
+  <Card title="Runtime Introduction" icon="desktop" href="/runtime/introduction">
+    Learn how a host runs ABI 1 plugins.
+  </Card>
+</CardGroup>

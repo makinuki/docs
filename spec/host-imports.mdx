@@ -1,3 +1,143 @@
 ---
-title: "host-imports"
+title: "ABI 1 Host Imports: Fetch, Storage, and Logging"
+sidebarTitle: "Host Imports"
+description: "Reference for every makinuki host import in ABI 1: fetch, storage get/set, and log. Includes request/response shapes and storage semantics."
 ---
+
+Host imports live under the module namespace `"makinuki"`. They are the only way a plugin can reach the outside world. The host runtime implements them using its own networking, storage, and logging stack. This page documents each import's signature, input shape, output shape, and edge-case behavior.
+
+## `makinuki_fetch`
+
+Executes an HTTP request using the host environment's network stack.
+
+<ParamField body="request_json" type="string" required>
+  Serialized `HttpRequest` object.
+</ParamField>
+
+<ParamField body="returns" type="string">
+  Serialized `HttpResponse` on success, or `HttpError` on challenge/block.
+</ParamField>
+
+### `HttpRequest`
+
+```json
+{
+  "url": "https://api.example.com/manga/123",
+  "method": "GET",
+  "headers": {
+    "User-Agent": "MakiNuki/1.0",
+    "Referer": "https://example.com"
+  },
+  "body": null
+}
+```
+
+| Field | Type | Required | Description |
+| :-- | :-- | :-- | :-- |
+| `url` | `string` | Yes | Full request URL. |
+| `method` | `string` | Yes | HTTP verb: `GET`, `POST`, `PUT`, `HEAD`, etc. |
+| `headers` | `Record<string, string>` | No | Key-value header map. |
+| `body` | `string \| null` | No | Request body, or `null` for no body. |
+
+### `HttpResponse`
+
+```json
+{
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"id\":\"123\",\"title\":\"Example Manga\"}"
+}
+```
+
+| Field | Type | Description |
+| :-- | :-- | :-- |
+| `status` | `number` | HTTP status code. |
+| `headers` | `Record<string, string>` | Response header map. |
+| `body` | `string` | Response body as a string. |
+
+### `HttpError`
+
+Returned when the host detects a challenge or block instead of a normal response.
+
+```json
+{
+  "error": "CLOUDFLARE_BLOCKED",
+  "status": 403,
+  "url": "https://example.com/challenge",
+  "message": "Cloudflare Turnstile challenge detected"
+}
+```
+
+| Field | Type | Description |
+| :-- | :-- | :-- |
+| `error` | `string` | Standardized error code. See [Error Codes](/spec/error-codes). |
+| `status` | `number` | HTTP status code that triggered the error. |
+| `url` | `string` | The request URL. |
+| `message` | `string` | Human-readable description for the host debugger. |
+
+---
+
+## `makinuki_storage_get`
+
+Reads a string value from host storage, scoped to the current source ID.
+
+<ParamField body="key" type="string" required>
+  The key to read. Keys never collide across sources because each source gets a private namespace.
+</ParamField>
+
+<ParamField body="returns" type="string \| null">
+  The stored string value, or `null` if the key is missing.
+</ParamField>
+
+### Null vs empty semantics
+
+- **Missing key:** returns `null`.
+- **Empty string stored:** returns `""`. An empty string is a legitimate stored value; only a missing key yields `null`.
+
+### Value cap and read truncation
+
+The host enforces a **64 KB cap** per value. Writes exceeding the cap are rejected at the Extism call boundary. If an older runtime stored a value larger than 64 KB, reads are **truncated** to 64 KB. PDKs surface write rejections as exceptions.
+
+---
+
+## `makinuki_storage_set`
+
+Persists a string value to host storage.
+
+<ParamField body="key_value_json" type="string" required>
+  Serialized object with `key` and `value` fields.
+</ParamField>
+
+```json
+{"key": "session_token", "value": "xyz789"}
+```
+
+| Field | Type | Required | Description |
+| :-- | :-- | :-- | :-- |
+| `key` | `string` | Yes | Storage key. |
+| `value` | `string` | Yes | String value to store. |
+
+The write is scoped to the current source ID, just like `makinuki_storage_get`.
+
+---
+
+## `makinuki_log`
+
+Emits a log entry to the host debugger or console.
+
+<ParamField body="log_json" type="string" required>
+  Serialized object with `level` and `message`.
+</ParamField>
+
+```json
+{"level": "info", "message": "Fetched page 1 successfully"}
+```
+
+| Field | Type | Required | Description |
+| :-- | :-- | :-- | :-- |
+| `level` | `"debug" \| "info" \| "warn" \| "error"` | Yes | Severity level. |
+| `message` | `string` | Yes | Log message text. |
+
+Hosts may filter log output by level. Plugins should use `error` for actionable failures and `debug` for verbose tracing.

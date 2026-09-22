@@ -1,3 +1,146 @@
 ---
-title: "configuration"
+title: "Configure MakiDoku with environment variables and CLI flags"
+sidebarTitle: "Configuration"
+description: "Customize MakiDoku through environment variables, CLI flags, and the .env file. Covers data directory, registry, tracker OAuth, download behavior, and image cache."
 ---
+
+MakiDoku reads configuration from CLI flags, environment variables, and an optional `.env` file. Flags take precedence over environment variables. The daemon searches for `.env` starting at the working directory and walking up through parent directories, so it works for both the daemon and `go test` invocations.
+
+## Environment variables
+
+### Core
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `MAKIDOKU_DATA_DIR` | `./data` | Data directory for the SQLite database, WASM cache, and downloads |
+| `MAKIDOKU_REGISTRY_URL` | Public registry | Source catalog URL or path to a local mirror |
+| `MAKIDOKU_SECRET` | _(none)_ | Encryption secret for tracker credentials. Losing this makes stored credentials unrecoverable |
+
+### Network and anti-bot
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `MAKIDOKU_CHALLENGE_WAIT` | `0` | How long a blocked request waits for anti-bot clearance before failing |
+| `MAKIDOKU_PAGE_INTERVAL` | `500ms` | Minimum interval between image requests to the same domain |
+
+### Downloads
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `MAKIDOKU_DOWNLOAD_DIR` | `<data-dir>/downloads` | Download output directory |
+| `MAKIDOKU_DOWNLOAD_WORKERS` | `3` | Concurrent chapter download workers |
+
+### Server
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `MAKIDOKU_PORT` | `6254` | HTTP port the daemon listens on |
+
+### Testing
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `MAKIDOKU_NETWORK_TESTS` | `0` | Set to `1` to enable tests that reach the live network |
+| `MAKIDOKU_TEST_REGISTRY` | Public registry | Override catalog for network tests |
+
+### Image cache
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `MAKIDOKU_IMAGE_CACHE_MAX_BYTES` | `536870912` (512 MiB) | Processed image cache size budget |
+| `MAKIDOKU_IMAGE_CACHE_MAX_AGE` | `720h` (30 days) | Processed image cache retention age |
+
+## OAuth application settings (`.env`)
+
+Create an OAuth app per provider and register the exact redirect URI, including the port. Add these to your `.env` file:
+
+```bash
+ANILIST_CLIENT_ID=your-id
+ANILIST_CLIENT_SECRET=your-secret
+MYANIMELIST_CLIENT_ID=your-id
+MANGABAKA_CLIENT_ID=your-id
+```
+
+Kitsu and MangaUpdates need no application registration.
+
+## CLI flags
+
+Every flag has an equivalent environment variable. Flags override environment values.
+
+### Global
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--data-dir` | `$MAKIDOKU_DATA_DIR` | Data directory |
+| `--verbose`, `-v` | `false` | Verbose logging |
+| `--download-dir` | `$MAKIDOKU_DOWNLOAD_DIR` | Download directory |
+| `--workers` | `$MAKIDOKU_DOWNLOAD_WORKERS` | Concurrent download workers |
+| `--page-interval` | `$MAKIDOKU_PAGE_INTERVAL` | Per-domain page request interval |
+| `--registry` | `$MAKIDOKU_REGISTRY_URL` | Source registry URL or path |
+| `--challenge-wait` | `$MAKIDOKU_CHALLENGE_WAIT` | Anti-bot challenge wait duration |
+
+### `serve`
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--port` | `$MAKIDOKU_PORT` | HTTP port |
+| `--bind` | `127.0.0.1` | Bind address |
+| `--tray` | `false` | Run with system tray (requires tray build tag) |
+| `--no-tray` | `false` | Disable system tray even when built with tray tag |
+
+### `install`
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--path` | `""` | Install from a local plugin binary |
+
+### `download`
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--chapters` | all | Chapter range, e.g. `1-50` |
+| `--format` | `cbz` | Output format: `cbz` or `folder` |
+
+### `sync`
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--tracker` | `""` | Tracker to sync: `anilist`, `mal`, `mangaupdates`, `mangabaka`, `kitsu` |
+
+### `export`
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--output`, `-o` | `-` | Output file (`-` for stdout) |
+
+## Data directory layout
+
+```text
+<data-dir>/
+  makidoku.db
+  makidoku.db-shm
+  makidoku.db-wal
+  downloads/
+    <source>/
+      <title>/
+        <chapter>.cbz
+        <chapter>/
+  wasm/
+    <cached plugin binaries>
+  image-cache/
+    <cached processed images>
+  source-icons/
+    <cached source icons>
+```
+
+## Settings API
+
+MakiDoku also stores user preferences in SQLite and exposes them through the REST API. See the [API reference](/makidoku/api) for `/api/settings` endpoints. Key settings include:
+
+- `reader.default_mode`, `reader.direction`, `reader.fit`
+- `library.update_interval`, `library.update_on_launch`
+- `downloads.auto_download`, `downloads.download_ahead`, `downloads.concurrent`
+- `tracking.auto_sync`
+- `backup.auto_interval`, `backup.auto_keep`
+- `privacy.incognito`
+- `advanced.log_level`, `advanced.image_cache_days`

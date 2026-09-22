@@ -1,3 +1,175 @@
 ---
-title: "endpoints"
+title: "Worker Proxy Endpoint Reference"
+sidebarTitle: "Endpoints"
+description: "Request and response shapes for POST /proxy, GET /proxy, /health, and OPTIONS in the MakiNuki Cloudflare Worker relay."
 ---
+
+This page documents every public endpoint of the MakiNuki Worker Proxy. All responses include CORS headers so they can be consumed directly by the browser runtime.
+
+## CORS preflight
+
+```http
+OPTIONS * HTTP/1.1
+```
+
+Response:
+
+```http
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS
+Access-Control-Allow-Headers: content-type, x-makinuki-client
+Access-Control-Max-Age: 86400
+```
+
+## POST /proxy
+
+Relay a plugin HTTP request through the worker. Requires `X-MakiNuki-Client` when `CLIENT_TOKEN` is configured.
+
+### Request
+
+```http
+POST /proxy HTTP/1.1
+Host: your-worker.workers.dev
+Content-Type: application/json
+X-MakiNuki-Client: your-dev-token
+
+{
+  "url": "https://api.mangadex.org/manga?limit=1",
+  "method": "GET",
+  "headers": {
+    "User-Agent": "Mozilla/5.0 ..."
+  },
+  "body": null
+}
+```
+
+<ParamField body="url" type="string" required>
+  The upstream URL to fetch.
+</ParamField>
+
+<ParamField body="method" type="string" required>
+  HTTP method. One of `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`.
+</ParamField>
+
+<ParamField body="headers" type="object">
+  Custom request headers. Hop-by-hop headers (`host`, `content-length`, etc.) are stripped.
+</ParamField>
+
+<ParamField body="body" type="string | null">
+  Request body as a string. Must be under 5 MB.
+</ParamField>
+
+### Response
+
+```http
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Content-Type: application/json
+
+{
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": "{\"result\":\"ok\"}"
+}
+```
+
+<ResponseField name="status" type="number">
+  HTTP status from the upstream response.
+</ResponseField>
+
+<ResponseField name="headers" type="object">
+  Upstream response headers with hop-by-hop fields removed.
+</ResponseField>
+
+<ResponseField name="body" type="string">
+  Upstream response body as text. Max 20 MB.
+</ResponseField>
+
+## GET /proxy
+
+Stream an image through the worker with edge caching. The `Origin` header must match `CLIENT_ORIGINS` when configured.
+
+### Request
+
+```http
+GET /proxy?url=https://cdn.example.net/page/01.jpg&ref=https://mangadex.org HTTP/1.1
+Host: your-worker.workers.dev
+```
+
+<ParamField query="url" type="string" required>
+  URL-encoded upstream image URL.
+</ParamField>
+
+<ParamField query="ref" type="string">
+  Optional referer header value.
+</ParamField>
+
+### Response
+
+```http
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Cache-Control: public, max-age=604800, immutable
+CDN-Cache-Control: public, s-maxage=604800, immutable
+Content-Type: image/jpeg
+
+<binary image data>
+```
+
+The worker mirrors the response into the Cloudflare Cache API so subsequent identical requests are served from the edge.
+
+## GET /health and GET /healthz
+
+Liveness probe that also reports the current allowlist size.
+
+### Request
+
+```http
+GET /health HTTP/1.1
+Host: your-worker.workers.dev
+```
+
+### Response
+
+```json
+{
+  "status": "ok",
+  "version": "1.0.0",
+  "allowlistCount": 42
+}
+```
+
+<ResponseField name="status" type="string">
+  Always `"ok"` when the worker is running.
+</ResponseField>
+
+<ResponseField name="version" type="string">
+  Worker version string.
+</ResponseField>
+
+<ResponseField name="allowlistCount" type="number">
+  Number of hosts currently in the allowlist cache.
+</ResponseField>
+
+## Error responses
+
+All error endpoints return a consistent JSON envelope:
+
+```json
+{
+  "error": "CODE",
+  "message": "human readable detail",
+  "status": 403
+}
+```
+
+| Code | Status | Trigger |
+| --- | --- | --- |
+| `BAD_REQUEST` | 400 | Invalid JSON, missing `url` or `method`, disallowed method, malformed body or headers |
+| `UNAUTHORIZED` | 403 | Wrong/missing `X-MakiNuki-Client` token, or origin not in `CLIENT_ORIGINS` |
+| `TARGET_REJECTED` | 403 | Host not in allowlist, or URL failed SSRF checks |
+| `UPSTREAM_ERROR` | 502 | Upstream fetch threw, redirect loop, response body over 20 MB, or timeout after 30 s |
+| `NOT_FOUND` | 404 | URL path does not match any defined route |

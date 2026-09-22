@@ -1,3 +1,80 @@
 ---
-title: "building"
+title: "Build MakiNuki Source Plugins from TypeScript to WASM"
+sidebarTitle: "Building"
+description: "Compile all source plugins in the makinuki/sources repository with pnpm build. Prerequisites include Node 22.18+, pnpm, extism-js, and binaryen tools on PATH."
 ---
+
+You can compile every source plugin in the `makinuki/sources` repository from TypeScript to WASM with a single command. The batch build script walks every subdirectory under `sources/`, invokes the PDK compiler, and emits `.wasm` artifacts into `dist/`.
+
+## Prerequisites
+
+Before building, make sure your environment has the following tools installed and available on `PATH`:
+
+- **Node.js** 22.18 or newer (enforced in `engines`)
+- **pnpm** (managed via `packageManager` in `package.json`)
+- **extism-js** compiler
+- **binaryen** (`wasm-merge` and `wasm-opt`)
+
+## Build steps
+
+<Steps>
+  <Step title="Install dependencies">
+    Run pnpm to fetch workspace dependencies, including `@makinuki/pdk` and `@makinuki/spec`:
+
+    ```bash
+    pnpm install
+    ```
+  </Step>
+  <Step title="Type-check the workspace">
+    Run the TypeScript compiler across scripts and all source packages without emitting files:
+
+    ```bash
+    pnpm typecheck
+    ```
+  </Step>
+  <Step title="Build all plugins">
+    Invoke the batch compiler. It iterates every subdirectory under `sources/` that contains a `package.json` and compiles it:
+
+    ```bash
+    pnpm build
+    ```
+  </Step>
+</Steps>
+
+## What the build script does
+
+`scripts/build.ts` performs the following for each plugin:
+
+1. Discovers source packages by scanning `sources/*/` for directories containing a `package.json`.
+2. Resolves the `makinuki-build` binary from the installed `@makinuki/pdk` package.
+3. Invokes it with the plugin entry point and type declarations:
+   ```text
+   makinuki-build src/index.ts -i src/index.d.ts -o dist/<name>.wasm
+   ```
+4. Exits with the compiler status on the first failure, or prints the total count on success.
+
+## Build output
+
+After a successful run, `dist/` contains one `.wasm` file per source:
+
+```text
+dist/
+├── asurascans.wasm
+├── atsumaru.wasm
+├── batcave.wasm
+├── cubari.wasm
+├── kagane.wasm
+├── mangaball.wasm
+├── mangadex.wasm
+├── mangadotnet.wasm
+├── mangafire.wasm
+├── mangakakalot.wasm
+├── omegascans.wasm
+└── weebcentral.wasm
+```
+
+<Info>
+  `dist/` is gitignored. Artifacts are generated on demand and consumed by the test runner, release script, and registry generator.
+</Info>
+
+For more details on the compiler itself, see the [PDK Build CLI](/pdk/build-cli) reference.

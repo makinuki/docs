@@ -1,3 +1,209 @@
 ---
-title: "data-schemas"
+title: "ABI 1 Data Schemas: Types for Manga, Filters, and Pages"
+sidebarTitle: "Data Schemas"
+description: "Complete TypeScript interfaces for ABI 1: SourceMetadata, FilterSchema, MangaItem, MangaDetails, ChapterItem, PageItem, and the PluginResult envelope."
 ---
+
+ABI 1 exchanges JSON over the Extism memory boundary. Every field, type, and contract rule in this page is taken directly from the ABI 1 specification. Use these interfaces as the source of truth when implementing a host runtime or writing a plugin.
+
+## `SourceMetadata`
+
+Static information returned by `get_metadata()`.
+
+```typescript
+interface SourceMetadata {
+  id: string;              // Unique slug, e.g. "mangadex-en", "asura-scans"
+  name: string;            // Display name, e.g. "Asura Scans"
+  version: string;         // SemVer string, e.g. "1.0.4"
+  abiVersion: number;      // ABI contract version; must equal host ABI version at runtime
+  lang: string;            // ISO 639-1 code, e.g. "en", "ja"; or "multi"
+  baseUrl: string;         // Canonical website URL
+  iconUrl: string;         // URL or base64 data URI of the source icon
+  nsfw: boolean;           // True if the source primarily hosts 18+ content
+  allowedHosts?: string[]; // Image/CDN hostnames beyond baseUrl; used by transport proxies
+}
+```
+
+---
+
+## `FilterSchema`
+
+Host applications iterate through this schema array to build search filter menus.
+
+```typescript
+type FilterSchema =
+  | SelectFilter
+  | TriStateFilter
+  | CheckboxFilter
+  | TextFilter;
+
+interface BaseFilter {
+  id: string;              // Key passed back in SearchQuery.filters
+  title: string;           // Display label in UI
+}
+
+interface SelectFilter extends BaseFilter {
+  type: "select";
+  options: Array<{ label: string; value: string }>;
+  default: string;
+}
+
+interface TriStateFilter extends BaseFilter {
+  type: "tri_state";
+  options: Array<{ label: string; value: string }>;
+  default?: Record<string, "+" | "-">;
+}
+
+interface CheckboxFilter extends BaseFilter {
+  type: "checkbox";
+  default: boolean;
+}
+
+interface TextFilter extends BaseFilter {
+  type: "text";
+  placeholder?: string;
+  default?: string;
+}
+```
+
+### Filter defaults contract
+
+The defaults emitted by `get_filters()` must describe the **unfiltered result set**. A host applying exactly the defaults must receive everything the source can find. A checkbox defaulting to checked means **inclusive** (checked = include in the query). A filter must never silently hardcode an unrelated query dimension, for example a language restriction inside a chapter-count checkbox.
+
+---
+
+## `MangaItem` and `PageResult<T>`
+
+```typescript
+interface PageResult<T> {
+  page: number;
+  hasNextPage: boolean;
+  items: T[];
+}
+
+interface MangaItem {
+  id: string;              // Unique ID scoped to this source
+  title: string;
+  coverUrl?: string;       // Absent when the title has no usable artwork
+  latestChapter?: string;  // e.g. "Ch. 142"
+  url?: string;            // Web URL to the series
+  covers?: CoverVariant[];
+}
+
+interface CoverVariant {
+  url: string;             // Absolute URL of this rendition
+  width?: number;          // Served pixel width, when declared
+  height?: number;         // Served pixel height, when declared
+}
+```
+
+### Cover variant rules
+
+- `coverUrl` remains the **canonical locator** and is optional. Plugins must **omit** it rather than fabricate placeholder URLs when a title carries no usable artwork. Hosts treat an absent value as no cover available (placeholder rendering is application policy outside this contract).
+- The optional `covers` array lists additional renditions of the same artwork as distinct absolute URLs and **never duplicates `coverUrl`**.
+- `covers` must be **omitted** whenever `coverUrl` is absent; the array presupposes a canonical locator.
+- `width` and `height` describe the served image when the source declares them.
+- A consumer choosing an image for a target width prefers the **largest declared width not exceeding** it, then the **smallest available variant**, then `coverUrl`.
+- Plugins may omit `covers`; hosts may ignore it.
+
+### Complete results contract
+
+Dynamic exports (`search`, `get_details`) return everything the source can find (all languages, groups, and content ratings) unless the caller's `filters` narrow the result. In ABI 1, `get_details` takes no filter input and must not apply language, rating, or content restrictions internally.
+
+Empty results are successful results: `search` may return zero items and `get_details` may return an empty `chapters` array inside `ok: true`. Hosts must not treat them as errors.
+
+---
+
+## `MangaDetails` and `ChapterItem`
+
+```typescript
+interface MangaDetails {
+  id: string;
+  title: string;
+  altTitles?: string[];
+  description?: string;
+  authors?: string[];
+  artists?: string[];
+  genres?: string[];
+  status: "Ongoing" | "Completed" | "Hiatus" | "Cancelled" | "Unknown";
+  coverUrl?: string;       // Absent when the title has no usable artwork
+  chapters: ChapterItem[];
+  covers?: CoverVariant[];
+}
+
+interface ChapterItem {
+  id: string;              // Unique chapter ID/slug
+  number: number | null;   // Float supporting decimals, e.g. 10.5; null for oneshots and extras
+  volume?: number;         // Volume grouping when the source declares one; integral values
+  language?: string;       // ISO 639-1 with optional region, e.g. "en", "pt-br"
+  title?: string;          // Optional chapter name, e.g. "The Return"
+  uploadedAt?: number;     // Unix timestamp in milliseconds
+  scanlator?: string;      // e.g. "Flame Comics"
+  url?: string;
+}
+```
+
+`covers` on `MangaDetails` follows the same variant rules as `MangaItem`.
+
+---
+
+## `PageItem` and `ScrambleInfo`
+
+```typescript
+interface PageItem {
+  index: number;
+  url: string;                          // Remote image URL
+  headers?: Record<string, string>;     // Required headers, e.g. Referer
+  isScrambled: boolean;                 // If true, host routes bytes through unscramble_image()
+  metadata?: ScrambleInfo;              // Required if isScrambled; tile map
+}
+
+interface ScrambleInfo {
+  layout: "slice" | "shift" | "custom";
+  rows: number;               // Grid rows
+  cols: number;               // Grid columns
+  tileW: number;              // Tile width in px
+  tileH: number;              // Tile height in px
+  order: number[];            // order[n] = original tile index currently at position n
+}
+```
+
+### Platform delivery contract
+
+- **Android / Desktop:** Native HTTP pipelines (OkHttp / Reqwest) inject `headers` directly onto image requests.
+- **Web:** If `headers` is non-empty, the Web runtime must fetch the image via the Worker or Extension transport, materialize it as a `Blob`, and inject `URL.createObjectURL(blob)` into the reader. If `headers` is empty, a direct `<img src="url">` is permitted.
+
+### Scrambled-slice byte path
+
+1. The host delivery pipeline fetches the scrambled image bytes directly through its own transport, **never** through `makinuki_fetch` and **never** serialized as base64/JSON.
+2. The bytes are copied into WASM memory and passed to `unscramble_image()`.
+3. The returned clean bytes are handed back to the reader (Web: `Blob` → `URL.createObjectURL`).
+4. Failure at any stage yields a zero-length buffer; the host reports `UNSCRAMBLE_FAILED`.
+
+---
+
+## `PluginResult<T>`
+
+Dynamic plugin exports (`search`, `get_details`, `get_pages`) wrap payloads in this envelope. Static exports (`get_metadata`, `get_filters`) return raw JSON and never use it.
+
+```typescript
+type PluginResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: ErrorCode; message: string } };
+```
+
+**Success:**
+
+```json
+{"ok": true, "data": { ... }}
+```
+
+**Failure:**
+
+```json
+{"ok": false, "error": {"code": "PARSING_ERROR", "message": "Failed to find #chapter-list"}}
+```
+
+- `code` must be one of the [standardized error codes](/spec/error-codes).
+- `message` is a human-readable hint for the host debugger.
+- Hosts must never infer errors from HTTP codes or thrown exceptions; they must rely on `ok: false`.

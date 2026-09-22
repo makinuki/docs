@@ -1,3 +1,94 @@
 ---
-title: "error-codes"
+title: "ABI 1 Error Codes and Anti-Bot Challenge Flow"
+sidebarTitle: "Error Codes"
+description: "All 11 standardized ABI 1 error codes, plus the anti-bot and captcha challenge flow with transport modes and retry behavior."
 ---
+
+Errors across the WASM boundary must use standardized codes so every host runtime can surface them consistently. This page lists all 11 ABI 1 error codes and explains the anti-bot challenge flow: how the host detects blocks, resolves them, and decides whether to retry the original request.
+
+## Standard Error Codes
+
+| Error Code | Category (Ref HTTP) | Description |
+| :-- | :-- | :-- |
+| `CLOUDFLARE_BLOCKED` | Network / WAF (403 / 503) | Anti-bot or Turnstile challenge encountered. |
+| `RATE_LIMITED` | Network / Upstream (429) | Source IP has been throttled by the provider. |
+| `NETWORK_TIMEOUT` | Network / Upstream (none) | Request took too long or the connection dropped. |
+| `SESSION_REQUIRED` | Auth (401) | Source requires user login or authentication token. |
+| `AUTH_EXPIRED` | Auth (none) | Session token is no longer valid; re-login required. |
+| `NOT_FOUND` | Network / Upstream (404) | Manga/chapter deleted or URL changed. |
+| `SOURCE_OFFLINE` | Network / Upstream (500 / 502 / 504) | Upstream manga site is currently unreachable. |
+| `PARSING_ERROR` | Plugin / Parser (none) | HTML markup changed; DOM selectors failed to extract data. |
+| `UNSUPPORTED_MEDIA` | Plugin / Parser (none) | Target media format cannot be parsed by this source. |
+| `MEMORY_LIMIT_EXCEEDED` | Plugin / Runtime (none) | Plugin exceeded the 16 MB image / 64 MB instance memory budget. |
+| `UNSCRAMBLE_FAILED` | Plugin / Delivery (none) | `unscramble_image` returned a zero-length buffer; tile skipped. |
+
+## Anti-Bot and Captcha Challenge Flow
+
+Because the plugin invokes `makinuki_fetch`, the host manages environmental networking and challenge resolution. The diagram below shows how a request flows from the plugin through the host transport and what happens when a challenge is detected.
+
+```text
+                          ┌────────────────────────────┐
+                          │ makinuki_fetch(HttpRequest)│
+                          └──────────────┬─────────────┘
+                                         │
+        ┌────────────────────────────────┼───────────────────────────────┐
+        ▼                                ▼                               ▼
+   ┌─────────┐                      ┌─────────┐                     ┌─────────┐
+   │   Web   │                      │ Android │                     │ Desktop │
+   └────┬────┘                      └────┬────┘                     └────┬────┘
+        │                                │                               │
+  Transport Mode:                 Native OkHttp                   Native Reqwest
+  1. Companion Extension          (No CORS, Native Headers)       (No CORS, Native Headers)
+  2. Worker Proxy Relay                  │                               │
+        │                                │                               │
+        └────────────────────────────────┼───────────────────────────────┘
+                                         │
+                                  Response Status?
+                                         │
+                   ┌─────────────────────┴─────────────────────┐
+                   ▼ 200 OK                                    ▼ 403 Challenge
+             Return to WASM                              Trigger Resolution
+                                                               │
+                                                 ┌─────────────┴─────────────┐
+                                                 │ Android: In-App WebView   │
+                                                 │ Web: Companion / Solver   │
+                                                 │ Desktop: Modal WebView    │
+                                                 └─────────────┬─────────────┘
+                                                               │
+                                                    Extract cf_clearance & UA
+                                                               │
+                                                    Retry Request to 200 OK
+```
+
+### Transport resolution modes (Web client)
+
+<Tabs>
+  <Tab title="Companion Extension">
+    `@makinuki/runtime-web` transmits requests via `window.postMessage` or `chrome.runtime.sendMessage` to the browser extension background script, executing native unrestricted `fetch()` calls.
+  </Tab>
+  <Tab title="Worker Proxy">
+    If the extension is absent, `@makinuki/runtime-web` routes requests through a Cloudflare Worker relay: `POST https://proxy.your-domain.workers.dev` with headers payload in the request body.
+  </Tab>
+</Tabs>
+
+### Challenge flow
+
+1. If the target returns HTTP `403` or HTML with Cloudflare Turnstile markers, `makinuki_fetch` yields an `HttpError`:
+   ```json
+   {"error": "CLOUDFLARE_BLOCKED", "url": "..."}
+   ```
+2. The host runtime catches this error and intercepts execution:
+   - **Android:** launches a modal `BottomSheetDialogFragment` with an Android `WebView`.
+   - **Web:** triggers the Companion or solver page.
+   - **Desktop:** opens a temporary embedded WebView window.
+3. The user solves the interactive puzzle or Turnstile check.
+4. The host intercepts the resulting `cf_clearance` cookie and matching `User-Agent` string and saves them into its persistent storage layer (which backs `makinuki_storage_get` and `makinuki_storage_set`).
+
+### Retry behavior
+
+The host's retry behavior depends on the original request method:
+
+- **`GET` / `HEAD`:** The host **transparently replays** the original request once cookies are refreshed.
+- **`POST` / `PUT`:** The host **does not auto-retry**. It returns `{"error": "CLOUDFLARE_BLOCKED"}` to the plugin so the plugin logic decides whether it is safe to re-invoke.
+
+This distinction protects against duplicate side effects. If your plugin sends a `POST` and receives a challenge, it must handle the error and re-issue the request itself after the user completes the challenge.

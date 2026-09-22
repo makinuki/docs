@@ -1,3 +1,101 @@
 ---
-title: "security"
+title: "Worker Proxy Security Model"
+sidebarTitle: "Security"
+description: "Host allowlists, SSRF guards, authentication, body limits, and redirect rules that protect the MakiNuki Cloudflare Worker relay."
 ---
+
+The MakiNuki Worker Proxy is designed to be a personal relay. This page documents every security layer, from the registry-derived host allowlist to SSRF guards, authentication, and body caps.
+
+## Host allowlist
+
+The worker only forwards requests to hosts that appear in its allowlist. The list is built from two sources:
+
+1. **Registry manifest** (`REGISTRY_URL` `index.json`): every source's `baseUrl` host plus its optional `allowedHosts` array.
+2. **Extra hosts** (`EXTRA_ALLOWED_HOSTS`): a comma-or-space-separated list of additional hostnames for local overrides or private sources.
+
+### Matching rules
+
+- Exact hostname match: `api.mangadex.org` matches `api.mangadex.org`.
+- Subdomain match: `cdn.mangadex.org` matches `mangadex.org`.
+- The allowlist is refreshed on a TTL (`ALLOWLIST_REFRESH_SECONDS`, default 3600) with retry and exponential backoff.
+
+If the registry is unreachable, the worker falls back to `EXTRA_ALLOWED_HOSTS` only and retries with a short 60-second TTL.
+
+## SSRF guards
+
+The worker rejects any URL that looks like an internal or loopback address, regardless of allowlist entries:
+
+- **IP literals**: all numeric hosts (`127.1`, `2130706433`, `0x7f000001`, leading-zero forms, IPv6).
+- **Local names**: `localhost`, `*.local`, `*.internal`.
+- **URL credentials**: usernames or passwords in the URL are rejected.
+- **Non-HTTP(S)**: only `http:` and `https:` are allowed.
+
+<Note>
+  Cloudflare Workers do not expose a synchronous DNS lookup API, so a registered domain that later resolves to an internal address cannot be detected before the fetch. The curated registry allowlist plus the short refresh TTL is the boundary.
+</Note>
+
+## Authentication
+
+### POST /proxy
+
+JSON relay requests require two checks:
+
+1. **Client token**: the `X-MakiNuki-Client` header must match the `CLIENT_TOKEN` secret.
+2. **Origin**: the `Origin` header must be in the `CLIENT_ORIGINS` list (when configured).
+
+```http
+POST /proxy HTTP/1.1
+X-MakiNuki-Client: your-dev-token
+Origin: https://app.example.com
+```
+
+### GET /proxy
+
+Image pass-through cannot carry custom headers from an `<img>` tag, so it is protected by the `Origin` allowlist only. The URL (including token) should be treated as sensitive and not shared publicly.
+
+## Body and timeout limits
+
+| Limit | Value | Applies to |
+| --- | --- | --- |
+| Request body | 5 MB | JSON relay (`POST /proxy`) |
+| Response body | 20 MB | JSON relay (`POST /proxy`) |
+| Upstream timeout | 30 s | All upstream fetches |
+| Redirect hops | 5 max | JSON relay only |
+
+If the upstream response exceeds 20 MB, the worker returns `UPSTREAM_ERROR`. If a redirect chain exceeds 5 hops, it also returns `UPSTREAM_ERROR`.
+
+## Redirect handling
+
+Redirects are followed manually in the JSON relay so that every hop can be validated against the allowlist:
+
+- A `location` header is resolved relative to the previous URL.
+- The new URL is checked with `assertSafelistedUrl`.
+- For 301/302/303 responses to POST, the method is downgraded to GET and the body is dropped.
+
+Image pass-through uses `redirect: "follow"` because the upstream CDN is expected to resolve its own redirects.
+
+## Hop-by-hop header stripping
+
+Before every upstream request, these headers are removed:
+
+```text
+host, content-length, content-encoding, transfer-encoding,
+connection, keep-alive, proxy-authenticate, proxy-authorization,
+te, trailer, upgrade
+```
+
+A default Chrome User-Agent is added if the client did not provide one.
+
+## Environment variables and secrets
+
+| Variable | Kind | Meaning | Default |
+| --- | --- | --- | --- |
+| `CLIENT_TOKEN` | Secret | Shared token required on `POST /proxy` | unset |
+| `CLIENT_ORIGINS` | Variable | Comma-separated allowed origins | unset (allow all) |
+| `REGISTRY_URL` | Variable | Registry manifest for the allowlist | `https://makinuki.github.io/index.json` |
+| `ALLOWLIST_REFRESH_SECONDS` | Variable | Allowlist cache TTL | `3600` |
+| `EXTRA_ALLOWED_HOSTS` | Variable | Extra allowlisted hostnames | unset |
+
+<Warning>
+  Store `CLIENT_TOKEN` via `wrangler secret put`. Never commit it to version control.
+</Warning>

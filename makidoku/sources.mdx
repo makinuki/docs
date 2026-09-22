@@ -1,3 +1,96 @@
 ---
-title: "sources"
+title: "Install and browse MakiNuki sources in MakiDoku"
+sidebarTitle: "Sources"
+description: "Install sources from the public registry or local binaries, browse their catalogs, and remove them. Every download is verified with SHA-256 and ABI version enforcement."
 ---
+
+MakiDoku sources are MakiNuki WASM plugins. You can install them from the public catalog or from a local file, browse their filters and search, and remove them when no longer needed. The registry client verifies every download against its SHA-256 digest and rejects plugins built against the wrong ABI version.
+
+## Install a source
+
+### From the catalog (CLI)
+
+```bash
+go run . install mangadex
+```
+
+### From a local binary (CLI)
+
+```bash
+go run . install --path /path/to/mangadex.wasm
+```
+
+### From the API
+
+```bash
+curl -X POST http://127.0.0.1:6254/api/sources/install \
+  -H 'Content-Type: application/json' \
+  -d '{"id":"mangadex"}'
+
+curl -X POST http://127.0.0.1:6254/api/sources/install \
+  -H 'Content-Type: application/json' \
+  -d '{"path":"/path/to/mangadex.wasm"}'
+```
+
+## List and remove sources
+
+<Steps>
+  <Step title="List installed sources">
+    ```bash
+    curl http://127.0.0.1:6254/api/sources
+    ```
+  </Step>
+  <Step title="Remove a source">
+    ```bash
+    curl -X DELETE http://127.0.0.1:6254/api/sources/mangadex
+    ```
+  </Step>
+</Steps>
+
+## Browse a source
+
+Title and chapter identifiers travel as query parameters because sources are free to use slugs and full URLs as identifiers.
+
+```bash
+# List available filters
+curl http://127.0.0.1:6254/api/sources/mangadex/filters
+
+# Search
+curl 'http://127.0.0.1:6254/api/sources/mangadex/search?q=Yosuga+no+Sora&page=1'
+
+# Title details
+curl 'http://127.0.0.1:6254/api/sources/mangadex/details?mangaId=<id>'
+
+# Chapter pages
+curl 'http://127.0.0.1:6254/api/sources/mangadex/pages?chapterId=<id>'
+```
+
+## Catalog and updates
+
+```bash
+# View the full catalog with local state annotations
+curl http://127.0.0.1:6254/api/sources/catalog
+
+# Force a fresh fetch from upstream
+curl 'http://127.0.0.1:6254/api/sources/catalog?refresh=1'
+
+# Update a single source to the latest version
+curl -X POST http://127.0.0.1:6254/api/sources/mangadex/update
+
+# Update all sources that have compatible updates available
+curl -X POST http://127.0.0.1:6254/api/sources/update-all
+```
+
+## Registry override
+
+Point MakiDoku at another catalog with `--registry` or `MAKIDOKU_REGISTRY_URL`. The value can be an `index.json` URL or a path to a local mirror.
+
+```bash
+go run . serve --registry https://example.com/makinuki/index.json
+export MAKIDOKU_REGISTRY_URL=/path/to/local/index.json
+go run . install some-source
+```
+
+## Verification
+
+Every catalog download is verified against the SHA-256 digest published in the registry before it is cached or executed. A plugin built against an ABI version other than the one MakiDoku expects is rejected with an incompatibility error.

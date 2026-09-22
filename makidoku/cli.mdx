@@ -1,3 +1,146 @@
 ---
-title: "cli"
+title: "MakiDoku CLI commands and flags reference"
+sidebarTitle: "CLI"
+description: "Complete reference for every MakiDoku Cobra command: serve, install, download, sync, export, import, update, and version."
 ---
+
+MakiDoku uses the Cobra CLI framework. Every command inherits the global persistent flags, and subcommands add their own. Use `makidoku --help` at any level to explore available options.
+
+## Global flags
+
+These flags apply to every command.
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--data-dir` | `./data` or `$MAKIDOKU_DATA_DIR` | Data directory for the database and downloads |
+| `--verbose`, `-v` | `false` | Enable verbose logging |
+| `--download-dir` | `<data-dir>/downloads` or `$MAKIDOKU_DOWNLOAD_DIR` | Directory for downloaded chapters |
+| `--workers` | `3` or `$MAKIDOKU_DOWNLOAD_WORKERS` | Concurrent chapter download workers |
+| `--page-interval` | `500ms` or `$MAKIDOKU_PAGE_INTERVAL` | Minimum interval between image requests to the same domain |
+| `--registry` | Public registry or `$MAKIDOKU_REGISTRY_URL` | Source catalog URL or local mirror path |
+| `--challenge-wait` | `0` or `$MAKIDOKU_CHALLENGE_WAIT` | How long a blocked request waits for anti-bot clearance |
+
+## Commands
+
+### `serve`
+
+Start the daemon and serve the web UI.
+
+```bash
+makidoku serve --port 6254 --bind 127.0.0.1
+```
+
+<Accordion title="Flags">
+  | Flag | Default | Description |
+  | --- | --- | --- |
+  | `--port` | `6254` or `$MAKIDOKU_PORT` | HTTP port |
+  | `--bind` | `127.0.0.1` | Bind address |
+  | `--tray` | `false` | Run with system tray (requires tray build tag) |
+  | `--no-tray` | `false` | Disable system tray even when built with tray tag |
+</Accordion>
+
+### `install`
+
+Install a source from the catalog or a local binary.
+
+```bash
+makidoku install mangadex
+makidoku install --path /path/to/mangadex.wasm
+```
+
+<Accordion title="Flags">
+  | Flag | Default | Description |
+  | --- | --- | --- |
+  | `--path` | `""` | Install a locally built plugin binary instead of a catalog id |
+</Accordion>
+
+### `download`
+
+Headless batch download without starting the HTTP server.
+
+```bash
+makidoku download 'mangadex:<manga-id>' --chapters 1-50 --format cbz
+makidoku download 'mangadex:<manga-id>' --chapters 1-5 \
+  --workers 2 --page-interval 750ms --download-dir ./manga
+```
+
+<Accordion title="Flags">
+  | Flag | Default | Description |
+  | --- | --- | --- |
+  | `--chapters` | all chapters | Chapter range, e.g. `1-50` |
+  | `--format` | `cbz` | Archive format: `cbz` or `folder` |
+</Accordion>
+
+### `sync`
+
+Drain tracker synchronization jobs.
+
+```bash
+makidoku sync --tracker anilist
+```
+
+<Accordion title="Flags">
+  | Flag | Default | Description |
+  | --- | --- | --- |
+  | `--tracker` | `""` | Tracker to sync: `anilist`, `mal`, `mangaupdates`, `mangabaka`, `kitsu` |
+</Accordion>
+
+### `export`
+
+Export the library backup to JSON.
+
+```bash
+makidoku export --output backup.json
+makidoku export -o - > backup.json
+```
+
+<Accordion title="Flags">
+  | Flag | Default | Description |
+  | --- | --- | --- |
+  | `--output`, `-o` | `-` | Output file (`-` for stdout) |
+</Accordion>
+
+### `import`
+
+Import a library backup from JSON.
+
+```bash
+makidoku import backup.json
+```
+
+### `update`
+
+Refresh all library titles and record new chapters.
+
+```bash
+makidoku update
+```
+
+### `version`
+
+Print the MakiDoku version, commit, and build date.
+
+```bash
+makidoku version
+```
+
+## Examples
+
+<Steps>
+  <Step title="Install a source">
+    ```bash
+    go run . install mangadex
+    ```
+  </Step>
+  <Step title="Start the daemon">
+    ```bash
+    go run . serve --port 6254 --bind 127.0.0.1
+    ```
+  </Step>
+  <Step title="Download chapters headlessly">
+    ```bash
+    go run . download 'mangadex:<manga-id>' \
+      --chapters 1-50 --format cbz --workers 2 --page-interval 750ms
+    ```
+  </Step>
+</Steps>

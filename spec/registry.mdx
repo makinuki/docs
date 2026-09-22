@@ -1,3 +1,127 @@
 ---
-title: "registry"
+title: "ABI 1 Registry: Manifest, Validation, and Security"
+sidebarTitle: "Registry"
+description: "The ABI 1 registry specification: index.json manifest format, SHA-256 verification, sandboxed permissions, and ABI version enforcement rules."
 ---
+
+The public registry is a decentralized catalog of pre-compiled sources served from GitHub Pages. Host runtimes download `index.json`, validate each entry, and load the matching `.wasm` file. This page documents the manifest format, entry fields, and the security rules every host must enforce before executing a plugin.
+
+## `index.json` Manifest Format
+
+The registry root is a single JSON file, typically hosted at `https://makinuki.github.io/index.json`:
+
+```json index.json
+{
+  "version": 1,
+  "updatedAt": 1786888000,
+  "sources": [
+    {
+      "id": "asura-scans",
+      "name": "Asura Scans",
+      "version": "1.0.4",
+      "abiVersion": 1,
+      "lang": "en",
+      "baseUrl": "https://asuracomic.net",
+      "iconUrl": "https://makinuki.github.io/icons/asura-scans.png",
+      "nsfw": false,
+      "wasmUrl": "https://makinuki.github.io/wasm/asura-scans-v1.0.4.wasm",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "minRuntimeVersion": "1.0.0"
+    }
+  ]
+}
+```
+
+### Entry fields
+
+<ParamField body="id" type="string" required>
+  Unique slug for the source, e.g. `asura-scans`.
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  Human-readable display name.
+</ParamField>
+
+<ParamField body="version" type="string" required>
+  Source package SemVer, e.g. `1.0.4`.
+</ParamField>
+
+<ParamField body="abiVersion" type="number" required>
+  ABI contract version the plugin was built against. Must match the host runtime's supported ABI version.
+</ParamField>
+
+<ParamField body="lang" type="string" required>
+  ISO 639-1 code or `multi` for multi-language sources.
+</ParamField>
+
+<ParamField body="baseUrl" type="string" required>
+  Canonical website URL.
+</ParamField>
+
+<ParamField body="iconUrl" type="string" required>
+  URL or base64 data URI of the source icon.
+</ParamField>
+
+<ParamField body="nsfw" type="boolean" required>
+  Whether the source primarily hosts 18+ content.
+</ParamField>
+
+<ParamField body="wasmUrl" type="string" required>
+  Direct URL to the compiled `.wasm` binary.
+</ParamField>
+
+<ParamField body="sha256" type="string" required>
+  SHA-256 hash of the `.wasm` file. Hosts must verify this before execution.
+</ParamField>
+
+<ParamField body="minRuntimeVersion" type="string" required>
+  Minimum runtime package SemVer that may execute this plugin.
+</ParamField>
+
+<ParamField body="allowedHosts" type="string[]">
+  Optional list of image or CDN hostnames the source uses beyond `baseUrl`. Transport proxies use `baseUrl` plus `allowedHosts` as their host allowlist.
+</ParamField>
+
+## Source Validation and Security Rules
+
+Every host runtime must apply these rules before instantiating a plugin:
+
+### SHA-256 Verification
+
+Hosts must compute the SHA-256 hash of any downloaded `.wasm` file and verify it against the `sha256` field in `index.json`. If the hash does not match, the host must refuse execution.
+
+### Sandboxed Permissions
+
+Plugins are restricted to calling only the declared host functions:
+
+- `makinuki_fetch`
+- `makinuki_storage_get`
+- `makinuki_storage_set`
+- `makinuki_log`
+
+The Extism runtime enforces this at instantiation time. Any import outside the `makinuki` namespace causes the module to fail loading.
+
+### ABI Version Enforcement
+
+Host runtimes must reject any plugin whose `abiVersion` does not match the runtime's supported ABI version. The registry may contain plugins for multiple ABI versions; hosts simply skip entries that do not match.
+
+### Dual Version Axes
+
+`abiVersion` and `minRuntimeVersion` are independent:
+
+- `abiVersion` is the **ABI contract version** (governed by the ABI versioning policy).
+- `minRuntimeVersion` is the **minimum runtime package** SemVer that may execute the plugin.
+
+A plugin may target ABI 1 while requiring a newer runtime package, for example because it depends on a bugfix in the host's `makinuki_fetch` implementation.
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Registry Overview" icon="globe" href="/sources/registry/overview">
+    Learn how to browse, publish, and update sources in the registry.
+  </Card>
+
+  <Card title="Versioning Policy" icon="code-branch" href="/spec/versioning">
+    How abiVersion is bumped, frozen, and enforced across releases.
+  </Card>
+</CardGroup>

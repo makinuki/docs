@@ -1,3 +1,66 @@
 ---
-title: "overview"
+title: "MakiNuki Public Registry: GitHub Pages Distribution"
+sidebarTitle: "Overview"
+description: "The makinuki.github.io registry hosts compiled WASM source plugins. Hosts fetch index.json, filter by abiVersion, and verify SHA-256 before executing any plugin."
 ---
+
+The MakiNuki public registry is a GitHub Pages site served from the `makinuki.github.io` repository. It is the canonical distribution channel for compiled source plugins. Any host (browser runtime, Go daemon, or third-party client) can fetch the registry index, discover compatible sources, and download the verified WASM artifacts.
+
+## Public URL
+
+```text
+https://makinuki.github.io/index.json
+```
+
+## Directory layout
+
+The Pages site has three top-level directories:
+
+```text
+makinuki.github.io/
+├── index.json          # registry manifest: metadata + download URLs + SHA-256
+├── schemas/
+│   ├── index.schema.json
+│   ├── metadata.schema.json
+│   ├── filter.schema.json
+│   ├── manga.schema.json
+│   ├── details.schema.json
+│   ├── chapter.schema.json
+│   ├── page.schema.json
+│   └── pages.schema.json
+└── wasm/
+    ├── asurascans-v1.1.4.wasm
+    ├── cubari-v1.0.1.wasm
+    ├── mangadex-v1.1.1.wasm
+    └── ...
+```
+
+## How hosts consume the registry
+
+A typical host workflow looks like this:
+
+1. Fetch `index.json` from the public URL.
+2. Filter `sources` to entries where `abiVersion` matches the host's own ABI version.
+3. Download the `.wasm` artifact from `wasmUrl`.
+4. Verify the binary against the `sha256` hex digest before loading it into the sandbox.
+5. Use `minRuntimeVersion` to decide whether the host is new enough to support the plugin.
+
+This ensures that only plugins built against the same frozen ABI contract are executed, and that the binary has not been tampered with in transit.
+
+## Registry policies
+
+- **Immutable artifacts**: Every release ships under a unique `wasm/<id>-v<version>.wasm` path. Artifacts are never overwritten.
+- **No downgrades**: The deployment pipeline rejects any update that would lower a plugin's version relative to the live registry.
+- **Serialized deploys**: A single queue serializes registry updates so concurrent releases cannot race.
+
+For the contract that defines ABI compatibility, see the [Specification](/spec/registry). For how the runtime loads and runs these plugins, see [Runtime Introduction](/runtime/introduction).
+
+<CardGroup cols={2}>
+  <Card title="Index Format" icon="file-code" href="/sources/registry/index-format">
+    Full schema of `index.json` with every field documented.
+  </Card>
+
+  <Card title="Schemas" icon="shield-check" href="/sources/registry/schemas">
+    JSON Schemas for metadata, filters, manga, chapters, and pages.
+  </Card>
+</CardGroup>

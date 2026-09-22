@@ -16,10 +16,10 @@
           {
             "group": "Get Started",
             "pages": [
-              "projects"
+              "projects",
+              "index"
             ]
-          },
-          "index"
+          }
         ]
       },
       {

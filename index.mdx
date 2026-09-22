@@ -1,0 +1,35 @@
+---
+title: "index"
+sidebarTitle: "Introduction"
+description: "MakiNuki is a set of open libraries and tooling for building manga, comic, and webtoon reading apps on the web."
+---
+
+MakiNuki is an organization that builds open, host-agnostic building blocks for manga, comic, and webtoon readers. Each project is independently versioned and stays focused on a single concern: reading state, plugin authoring, protocol specification.
+
+## Projects
+
+<CardGroup cols={2}>
+  <Card title="Mekuri" icon="book-open" href="/mekuri/introduction">
+    Headless-first reader engine and view library for manga, comics, and webtoons on the web.
+  </Card>
+
+  <Card title="PDK for TypeScript" icon="puzzle" href="/pdk/introduction">
+    Compile TypeScript scrapers into MakiNuki WebAssembly plugins that speak the MakiNuki ABI.
+  </Card>
+</CardGroup>
+
+## Where to start
+
+<CardGroup cols={2}>
+  <Card title="Build a reader UI" icon="rocket" href="/mekuri/quickstart">
+    Wire the Mekuri engine to your own markup or use the prebuilt views.
+  </Card>
+
+  <Card title="Write a source plugin" icon="terminal" href="/pdk/quickstart">
+    Bundle a TypeScript scraper into a `.wasm` plugin with `makinuki-build`.
+  </Card>
+</CardGroup>
+
+<Note>
+  MakiNuki libraries never fetch images, never persist reading state, and never store credentials. The host application owns networking, storage, and authentication.
+</Note>

@@ -1,31 +1,59 @@
 ---
-title: "MakiNuki projects and repositories"
+title: "MakiNuki Project Directory and Repositories"
 sidebarTitle: "Projects"
-description: "Directory of MakiNuki open source projects, what they do, where they live on GitHub, and how they fit together in a reader stack."
+description: "Every repository in the MakiNuki organization, what it does, its language, and where its documentation lives on this site."
 ---
 
-MakiNuki is split into small, independently versioned packages. Each project owns one concern and stays replaceable.
+Every published repository in the [`makinuki` GitHub organization](https://github.com/makinuki) is listed here with its role in the ecosystem and its documentation entry point.
 
-## Libraries
+## Contract and tooling
 
 <CardGroup cols={2}>
-  <Card title="@makinuki/mekuri" icon="book-open" href="https://github.com/makinuki/mekuri">
-    Headless reader engine and optional view library. React binding, vanilla store, pure page math.
+  <Card title="spec" icon="file-lines" href="/spec/introduction">
+    Shell / MIT. The frozen ABI 1 contract shared by every plugin and host.
   </Card>
 
-  <Card title="@makinuki/pdk" icon="puzzle" href="https://github.com/makinuki/pdk-ts">
-    TypeScript PDK for building MakiNuki WebAssembly scraper plugins.
+  <Card title="pdk-ts" icon="code" href="/pdk/introduction">
+    TypeScript / MIT. TypeScript PDK for authoring MakiNuki WASM source plugins.
   </Card>
 </CardGroup>
 
-## How they fit together
+## Sources and registry
 
-A MakiNuki-based reader typically combines:
+<CardGroup cols={2}>
+  <Card title="sources" icon="database" href="/sources/introduction">
+    TypeScript / MIT. Reference source plugins compiled to WASM.
+  </Card>
 
-- **A source plugin** built with the [PDK](/pdk/introduction). The plugin runs in a WebAssembly sandbox and implements the MakiNuki ABI: metadata, filters, search, details, pages, and optional image unscrambling.
-- **A host application** that loads the plugin, fetches images, handles authentication, and persists reading position.
-- **A reader surface** built with [Mekuri](/mekuri/introduction). The engine owns reading state, spreads, gestures, keyboard, and the failure registry; the host owns the DOM and the network.
+  <Card title="makinuki.github.io" icon="server" href="/sources/registry/overview">
+    Source registry: `index.json` catalog, JSON schemas, and hosted `.wasm` artifacts.
+  </Card>
+</CardGroup>
 
-<Info>
-  More MakiNuki repositories will land in this documentation site as they are published.
-</Info>
+## Runtime and transports
+
+<CardGroup cols={2}>
+  <Card title="runtime-web" icon="globe" href="/runtime/introduction">
+    TypeScript / MIT. Browser runtime that loads and executes MakiNuki plugins in WASM.
+  </Card>
+
+  <Card title="companion-extension" icon="puzzle-piece" href="/runtime/companion/overview">
+    JavaScript / MIT. Manifest V3 browser extension providing zero-CORS transport.
+  </Card>
+
+  <Card title="worker-proxy" icon="cloud" href="/runtime/worker-proxy/overview">
+    TypeScript / MIT. Cloudflare Worker CORS relay for browser transport.
+  </Card>
+</CardGroup>
+
+## Applications
+
+<CardGroup cols={2}>
+  <Card title="makidoku" icon="book" href="/makidoku/introduction">
+    Go. Portable library, reader, and batch downloader with embedded React UI.
+  </Card>
+
+  <Card title="mekuri" icon="images" href="/mekuri/introduction">
+    TypeScript / MIT. Framework-agnostic reader engine used by web hosts.
+  </Card>
+</CardGroup>

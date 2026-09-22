@@ -1,35 +1,52 @@
 ---
-title: "index"
-sidebarTitle: "Introduction"
-description: "MakiNuki is a set of open libraries and tooling for building manga, comic, and webtoon reading apps on the web."
+title: "MakiNuki: Open Source Manga Reader Toolkit"
+sidebarTitle: "Overview"
+description: "MakiNuki is an ABI-driven manga reader ecosystem: WASM sources, a browser runtime, a Go reader app, and a TypeScript PDK."
 ---
 
-MakiNuki is an organization that builds open, host-agnostic building blocks for manga, comic, and webtoon readers. Each project is independently versioned and stays focused on a single concern: reading state, plugin authoring, protocol specification.
+MakiNuki (巻抜き) is a cross-platform open source stack for reading manga and webtoons. Sources ship as sandboxed WebAssembly plugins that conform to a frozen ABI, and every host runtime (browser, Go daemon, embedded reader) speaks the same contract. This site documents each repository in the [`makinuki` organization](https://github.com/makinuki) and how they fit together.
 
-## Projects
+## Explore the projects
 
 <CardGroup cols={2}>
-  <Card title="Mekuri" icon="book-open" href="/mekuri/introduction">
-    Headless-first reader engine and view library for manga, comics, and webtoons on the web.
+  <Card title="Spec" icon="file-lines" href="/spec/introduction">
+    ABI 1 contract: exports, host imports, JSON schemas, error codes, and versioning rules.
   </Card>
 
-  <Card title="PDK for TypeScript" icon="puzzle" href="/pdk/introduction">
-    Compile TypeScript scrapers into MakiNuki WebAssembly plugins that speak the MakiNuki ABI.
+  <Card title="PDK (TypeScript)" icon="code" href="/pdk/introduction">
+    Write, build, and ship MakiNuki WASM source plugins in TypeScript.
+  </Card>
+
+  <Card title="Reference Sources" icon="database" href="/sources/introduction">
+    Reference source plugins and the public source registry served from GitHub Pages.
+  </Card>
+
+  <Card title="Web Runtime" icon="globe" href="/runtime/introduction">
+    Browser runtime, companion extension, and Cloudflare Worker transport proxy.
+  </Card>
+
+  <Card title="MakiDoku" icon="book" href="/makidoku/introduction">
+    Portable Go reader, library manager, and batch downloader hosting MakiNuki plugins.
+  </Card>
+
+  <Card title="Mekuri" icon="images" href="/mekuri/introduction">
+    Framework-agnostic reader engine with paged, spread, and vertical scroll modes.
   </Card>
 </CardGroup>
 
-## Where to start
+## How the pieces fit
 
-<CardGroup cols={2}>
-  <Card title="Build a reader UI" icon="rocket" href="/mekuri/quickstart">
-    Wire the Mekuri engine to your own markup or use the prebuilt views.
-  </Card>
-
-  <Card title="Write a source plugin" icon="terminal" href="/pdk/quickstart">
-    Bundle a TypeScript scraper into a `.wasm` plugin with `makinuki-build`.
-  </Card>
-</CardGroup>
-
-<Note>
-  MakiNuki libraries never fetch images, never persist reading state, and never store credentials. The host application owns networking, storage, and authentication.
-</Note>
+<Steps>
+  <Step title="A source is authored">
+    A scraper is written against the [ABI](/spec/introduction) using the [PDK](/pdk/introduction) and compiled to a single `.wasm` binary.
+  </Step>
+  <Step title="It is published to the registry">
+    The plugin ships to the [source registry](/sources/registry/overview) at `https://makinuki.github.io/index.json` with a SHA-256 digest.
+  </Step>
+  <Step title="A host loads and runs it">
+    Any host that speaks ABI 1 loads the plugin, verifies its digest, and invokes exports through host-managed I/O: the [web runtime](/runtime/introduction) in a browser, or [MakiDoku](/makidoku/introduction) on desktop.
+  </Step>
+  <Step title="A reader renders the pages">
+    Rendered pages flow into a UI, such as the [Mekuri](/mekuri/introduction) engine embedded in a web reader or the React SPA shipped by MakiDoku.
+  </Step>
+</Steps>

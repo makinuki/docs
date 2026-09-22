@@ -23,6 +23,135 @@
         ]
       },
       {
+        "tab": "Spec",
+        "groups": [
+          {
+            "group": "ABI Specification",
+            "pages": [
+              "spec/introduction",
+              "spec/architecture",
+              "spec/plugin-abi",
+              "spec/host-imports",
+              "spec/data-schemas",
+              "spec/error-codes",
+              "spec/registry",
+              "spec/versioning"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "PDK",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "pdk/introduction",
+              "pdk/quickstart",
+              "pdk/build-cli"
+            ]
+          },
+          {
+            "group": "Plugin Development",
+            "pages": [
+              "pdk/plugin-structure",
+              "pdk/host-services",
+              "pdk/writing-safe-plugins"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "pdk/reference/types",
+              "pdk/reference/errors"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Sources",
+        "groups": [
+          {
+            "group": "Reference Sources",
+            "pages": [
+              "sources/introduction",
+              "sources/building",
+              "sources/testing",
+              "sources/releasing"
+            ]
+          },
+          {
+            "group": "Registry",
+            "pages": [
+              "sources/registry/overview",
+              "sources/registry/index-format",
+              "sources/registry/schemas"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Runtime",
+        "groups": [
+          {
+            "group": "Web Runtime",
+            "pages": [
+              "runtime/introduction",
+              "runtime/quickstart",
+              "runtime/transports",
+              "runtime/storage-and-images",
+              "runtime/reference"
+            ]
+          },
+          {
+            "group": "Companion Extension",
+            "pages": [
+              "runtime/companion/overview",
+              "runtime/companion/install",
+              "runtime/companion/protocol"
+            ]
+          },
+          {
+            "group": "Worker Proxy",
+            "pages": [
+              "runtime/worker-proxy/overview",
+              "runtime/worker-proxy/deploy",
+              "runtime/worker-proxy/endpoints",
+              "runtime/worker-proxy/security"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "MakiDoku",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "makidoku/introduction",
+              "makidoku/quickstart",
+              "makidoku/cli"
+            ]
+          },
+          {
+            "group": "Library",
+            "pages": [
+              "makidoku/sources",
+              "makidoku/downloads",
+              "makidoku/trackers",
+              "makidoku/anti-bot"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "makidoku/api",
+              "makidoku/configuration"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "Mekuri",
         "groups": [
           {
@@ -55,34 +184,6 @@
             "pages": [
               "mekuri/reference/api",
               "mekuri/reference/test-utils"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "PDK",
-        "groups": [
-          {
-            "group": "Get Started",
-            "pages": [
-              "pdk/introduction",
-              "pdk/quickstart",
-              "pdk/build-cli"
-            ]
-          },
-          {
-            "group": "Plugin Development",
-            "pages": [
-              "pdk/plugin-structure",
-              "pdk/host-services",
-              "pdk/writing-safe-plugins"
-            ]
-          },
-          {
-            "group": "Reference",
-            "pages": [
-              "pdk/reference/types",
-              "pdk/reference/errors"
             ]
           }
         ]

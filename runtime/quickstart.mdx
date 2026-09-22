@@ -1,0 +1,111 @@
+---
+title: "Get Started with the MakiNuki Web Runtime"
+sidebarTitle: "Quickstart"
+description: "Install @makinuki/runtime-web, load a registry source, and run a complete search-to-image pipeline in the browser in under five minutes."
+---
+
+This guide walks you through installing the MakiNuki web runtime and loading your first source plugin. You will fetch the registry, load a source, search for a title, retrieve chapter pages, and stream an image blob.
+
+<Steps>
+  <Step title="Install the package">
+    The runtime is published as `@makinuki/runtime-web` and ships as a zero-dependency ES module (besides Extism).
+
+    ```bash npm
+    npm install @makinuki/runtime-web
+    ```
+
+    ```bash pnpm
+    pnpm add @makinuki/runtime-web
+    ```
+
+    ```bash yarn
+    yarn add @makinuki/runtime-web
+    ```
+  </Step>
+  <Step title="Create the runtime">
+    Import `MakiNukiRuntime` and point it at the default registry. The `transport.pin` option forces direct browser fetch for this demo.
+
+    ```js example.js
+    import { MakiNukiRuntime } from "@makinuki/runtime-web";
+    
+    const runtime = new MakiNukiRuntime({
+      registryUrl: "https://makinuki.github.io/index.json",
+      transport: {
+        pin: "direct", // "direct" | "companion" | "worker"
+      },
+      validate: false,
+    });
+    ```
+  </Step>
+  <Step title="Load a source">
+    `loadSource` looks up the source ID in the registry, downloads the `.wasm` binary, verifies its SHA-256 digest, and instantiates the plugin.
+
+    ```js example.js
+    const source = await runtime.loadSource("mangadex");
+    console.log("Loaded:", source.metadata.name);
+    ```
+  </Step>
+  <Step title="Search and browse">
+    Call `search`, `getDetails`, and `getPages` to walk from a query down to individual chapter images.
+
+    ```js example.js
+    const { items } = await source.search({
+      query: "Bokutachi wa Hanshoku wo Yameta",
+      page: 1,
+    });
+    
+    const details = await source.getDetails(items[0].id);
+    const pages = await source.getPages(details.chapters[0].id);
+    ```
+  </Step>
+  <Step title="Fetch an image">
+    `fetchImage` returns a `Blob` that is already transport-aware (headers, proxy, or companion bridge are applied automatically).
+
+    ```js example.js
+    const blob = await source.fetchImage(pages[0]);
+    const url = URL.createObjectURL(blob);
+    const img = document.createElement("img");
+    img.src = url;
+    document.body.appendChild(img);
+    ```
+  </Step>
+  <Step title="Clean up">
+    Close the source and the runtime to free the Extism plugin and any transport resources.
+
+    ```js example.js
+    await source.close();
+    await runtime.close();
+    ```
+  </Step>
+</Steps>
+
+## Complete example
+
+Here is the full pipeline in one block, copied from the repository README:
+
+```js example.js
+import { MakiNukiRuntime } from "@makinuki/runtime-web";
+
+const runtime = new MakiNukiRuntime({
+  registryUrl: "https://makinuki.github.io/index.json",
+  transport: { pin: "direct" },
+  validate: false,
+});
+
+const index = await runtime.registryIndex();
+const source = await runtime.loadSource("mangadex");
+
+const { items } = await source.search({ query: "Bokutachi wa Hanshoku wo Yameta", page: 1 });
+const details = await source.getDetails(items[0].id);
+const pages = await source.getPages(details.chapters[0].id);
+const blob = await source.fetchImage(pages[0]);
+
+await source.close();
+await runtime.close();
+```
+
+## Next steps
+
+- Read about the three [transport modes](/runtime/transports) and when to use each one.
+- Learn how the runtime handles [storage and images](/runtime/storage-and-images).
+- Browse the full [API reference](/runtime/reference).

@@ -1,0 +1,101 @@
+---
+title: "Transport Modes for the MakiNuki Web Runtime"
+sidebarTitle: "Transports"
+description: "Direct browser fetch, companion extension bridge, or Cloudflare worker relay: pick the right transport mode for your network constraints."
+---
+
+MakiNuki routes every plugin HTTP request through a transport manager that supports three modes: `direct`, `companion`, and `worker`. Because many manga sites block cross-origin requests by default, the runtime auto-detects the best available tier, or you can pin one explicitly in `TransportOptions`.
+
+## Three transport modes
+
+<CardGroup cols={3}>
+  <Card title="Direct" icon="globe" href="#direct">
+    Standard browser `fetch`. Subject to upstream CORS.
+  </Card>
+
+  <Card title="Companion" icon="puzzle-piece" href="/runtime/companion/overview">
+    Manifest V3 extension. Zero-CORS with full headers and cookies.
+  </Card>
+
+  <Card title="Worker" icon="cloud" href="/runtime/worker-proxy/overview">
+    Cloudflare Worker relay. Registry allowlist with edge caching.
+  </Card>
+</CardGroup>
+
+### Direct
+
+Direct mode uses the browser's native `fetch` API. It is the simplest to set up but is subject to upstream CORS policy. If a source API or image CDN does not send `Access-Control-Allow-Origin`, direct mode will fail.
+
+```js
+const runtime = new MakiNukiRuntime({
+  transport: { pin: "direct" },
+});
+```
+
+### Companion
+
+The companion extension runs as a Manifest V3 background service worker. It executes `fetch()` with full headers and target-domain cookies, bypassing CORS entirely. The extension must be installed unpacked and granted host permissions via its popup. See the [companion overview](/runtime/companion/overview) for details.
+
+```js
+const runtime = new MakiNukiRuntime({
+  transport: { pin: "companion" },
+});
+```
+
+### Worker
+
+The worker proxy is a Cloudflare Worker that relays requests and streams images. It checks a host allowlist, caches images at the edge for seven days, and adds CORS headers to every response. You host your own worker and pair it with a `CLIENT_TOKEN`. See the [worker proxy overview](/runtime/worker-proxy/overview) for details.
+
+```js
+const runtime = new MakiNukiRuntime({
+  transport: {
+    pin: "worker",
+    proxyUrl: "https://your-worker.workers.dev/proxy",
+    clientToken: "your-dev-token",
+  },
+});
+```
+
+## TransportOptions
+
+The `TransportOptions` object controls mode selection and per-mode configuration:
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `pin` | `"direct" \| "companion" \| "worker"` | `undefined` | Force a single mode. |
+| `proxyUrl` | `string` | `undefined` | Worker proxy base URL. Auto-appends `/proxy` if path is empty. |
+| `clientToken` | `string` | `undefined` | Token sent as `X-MakiNuki-Client` for POST relay. |
+| `origin` | `string` | `undefined` | Origin header for worker image fetches. |
+| `direct` | `boolean` | `true` | Whether direct mode is eligible for auto-detection. |
+| `companion` | `boolean` | `true` | Whether companion mode is eligible for auto-detection. |
+| `worker` | `boolean` | `true` | Whether worker mode is eligible for auto-detection. |
+
+## Auto-detection order
+
+When `pin` is omitted, the transport manager tries modes in this priority order:
+
+1. **Companion** (if `companion` is `true` and the extension is detected)
+2. **Worker** (if `worker` is `true` and `proxyUrl` is configured)
+3. **Direct** (if `direct` is `true`)
+
+If a mode fails, the manager falls back to the next tier. For example, if the companion extension is not installed, the runtime silently tries worker, then direct.
+
+<Note>
+  The companion is detected with a `makinuki:ping` / `makinuki:pong` handshake over `window.postMessage`. Detection takes about 500 ms. If it fails, the runtime remembers the failure for the lifetime of the `TransportManager` instance.
+</Note>
+
+## Image fetching
+
+Image delivery uses mode-specific optimizations:
+
+- **Direct**: adds a default Chrome User-Agent header.
+- **Companion**: fetches through the extension bridge and returns a `Blob` decoded from a base64 `bodyBase64` field. Use this for header-protected images (e.g., `Referer`-locked CDN).
+- **Worker**: builds a signed `GET /proxy?url=&ref=` URL and fetches it directly with optional origin headers. The worker caches the response for seven days.
+
+## CORS reality
+
+Most registry sources are CORS-blocked by default. In practice:
+
+- Use **direct** only for development or for sources that explicitly allow cross-origin requests.
+- Use **companion** for daily reading on desktop Chrome/Chromium. It requires a one-time manual install.
+- Use **worker** for shared deployments, mobile browsers, or when you cannot install an extension. You must host and configure the worker yourself.

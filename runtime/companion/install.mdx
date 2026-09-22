@@ -1,0 +1,89 @@
+---
+title: "Install the MakiNuki Companion Extension"
+sidebarTitle: "Install"
+description: "Load the MakiNuki Companion extension unpacked in Chrome, grant host permissions, and pin the companion transport in MakiNukiRuntime."
+---
+
+This guide walks you through installing the MakiNuki Companion extension from the source repository and configuring the web runtime to use it as the transport.
+
+<Steps>
+  <Step title="Clone or locate the extension">
+    The extension source lives in the `companion-extension/` directory of the MakiNuki monorepo.
+
+    ```bash
+    git clone https://github.com/makinuki/companion-extension.git
+    cd companion-extension
+    ```
+
+    You do not need to build anything. The extension runs as plain JavaScript.
+  </Step>
+  <Step title="Load the unpacked extension">
+    1. Open Chrome and navigate to `chrome://extensions`.
+    2. Toggle **Developer mode** to ON (top-right corner).
+    3. Click **Load unpacked**.
+    4. Select the `companion-extension/` folder (the one containing `manifest.json`).
+
+    The extension card should appear in the list with the name "MakiNuki Companion".
+  </Step>
+  <Step title="Grant host permissions">
+    1. Click the **MakiNuki Companion** icon in the Chrome toolbar to open its popup.
+    2. Click **Connect (grant host access)**.
+    3. Chrome will prompt you to allow the extension to read and change data on all sites. Approve the request.
+
+    Without this grant, the content script bridge reports itself as unavailable and the runtime will fall back to worker or direct transport.
+  </Step>
+  <Step title="Pin the companion transport">
+    In your app, create the runtime with `pin: "companion"`.
+
+    ```ts app.ts
+    import { MakiNukiRuntime } from "@makinuki/runtime-web";
+    
+    const runtime = new MakiNukiRuntime({
+      registryUrl: "https://makinuki.github.io/index.json",
+      transport: {
+        pin: "companion",
+      },
+    });
+    ```
+  </Step>
+  <Step title="Verify the connection">
+    Call `transportMode()` after initialization to confirm the runtime sees the extension.
+
+    ```ts app.ts
+    const mode = await runtime.transportMode();
+    console.log(mode); // "companion"
+    ```
+
+    You can also inspect `source.lastTransportMode` after any network call to see which tier was actually used.
+  </Step>
+</Steps>
+
+## Reloading after edits
+
+If you modify the extension source:
+
+1. Click the **reload** icon on the extension card at `chrome://extensions`.
+2. Refresh the page that hosts the MakiNuki runtime.
+
+The content script is injected at `document_start`, so a full page refresh is required for changes to take effect.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="transportMode returns null">
+    The extension is not detected. Make sure:
+
+    - Developer mode is enabled.
+    - The extension is loaded unpacked and shows no errors on the card.
+    - Host permissions were granted through the popup.
+    - You refreshed the page after granting permissions.
+  </Accordion>
+
+  <Accordion title="CORS errors still appear">
+    If `pin` is not set, the runtime may have fallen back to `direct` because the companion was not detected in time. Pin to `"companion"` to force the mode and surface the real error.
+  </Accordion>
+
+  <Accordion title="Extension card shows errors">
+    Open the service worker inspector from the extension card and check the console for runtime errors. Common issues include missing `manifest.json` fields or incorrect file paths.
+  </Accordion>
+</AccordionGroup>

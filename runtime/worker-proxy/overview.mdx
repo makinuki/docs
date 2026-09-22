@@ -1,0 +1,110 @@
+---
+title: "MakiNuki Worker Proxy: Cloudflare CORS Relay"
+sidebarTitle: "Overview"
+description: "Host a Cloudflare Worker that relays MakiNuki plugin requests and streams images with a registry-derived host allowlist and seven-day edge caching."
+---
+
+The MakiNuki Worker Proxy is a Cloudflare Worker that acts as a CORS relay for the web runtime. It receives plugin-originated HTTP requests via `POST /proxy`, streams images via `GET /proxy`, and caches immutable image responses at the Cloudflare edge for seven days. You deploy your own instance so the token, origin allowlist, and extra hosts are under your control.
+
+## Architecture
+
+```text
+browser runtime (runtime-web)
+  | POST /proxy { url, method, headers, body }
+  | GET  /proxy?url=...&ref=...
+  v
+worker-proxy (Cloudflare Worker)
+  1. origin check      CLIENT_ORIGINS
+  2. token check       CLIENT_TOKEN (POST only)
+  3. allowlist check   registry-derived hosts + EXTRA_ALLOWED_HOSTS
+  4. relay / stream    fetch upstream, timeout, header filtering
+  v
+upstream (MangaDex API, image CDN, ...)
+```
+
+The allowlist is derived from the registry manifest (`REGISTRY_URL` `index.json`) and cached in the worker isolate. Image pass-through responses are mirrored into the Cloudflare Cache API with a 7-day immutable TTL, so repeated chapter page loads are served from the edge.
+
+## Endpoints
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/proxy` | JSON relay for `makinuki_fetch` traffic. |
+| `GET` | `/proxy?url=&ref=` | Streaming image pass-through for `<img>` tags. |
+| `GET` | `/health` | Liveness probe. |
+| `GET` | `/healthz` | Alias for `/health`. |
+| `OPTIONS` | `*` | CORS preflight handler. |
+
+## Request and response shapes
+
+### JSON relay (`POST /proxy`)
+
+Request:
+
+```json
+{
+  "url": "https://api.mangadex.org/manga?limit=1",
+  "method": "GET",
+  "headers": { "User-Agent": "..." },
+  "body": null
+}
+```
+
+Response:
+
+```json
+{
+  "status": 200,
+  "headers": { "content-type": "application/json" },
+  "body": "{\"result\":\"ok\"}"
+}
+```
+
+### Image pass-through (`GET /proxy`)
+
+Query parameters:
+
+- `url` (required): upstream image URL
+- `ref` (optional): referer header
+
+The worker streams the raw upstream body with these cache headers:
+
+```text
+cache-control: public, max-age=604800, immutable
+CDN-Cache-Control: public, s-maxage=604800, immutable
+```
+
+## Error envelope
+
+All errors return a uniform JSON shape:
+
+```json
+{
+  "error": "CODE",
+  "message": "human readable detail",
+  "status": 403
+}
+```
+
+| Code | Status | Meaning |
+| --- | --- | --- |
+| `BAD_REQUEST` | 400 | Malformed payload or missing/invalid field |
+| `UNAUTHORIZED` | 403 | Missing/invalid client token or disallowed origin |
+| `TARGET_REJECTED` | 403 | URL failed the allowlist or SSRF checks |
+| `UPSTREAM_ERROR` | 502 | Upstream fetch/redirect/body-limit failure |
+| `NOT_FOUND` | 404 | Unknown route |
+
+## When to use the worker proxy
+
+Use the worker proxy when:
+
+- You cannot install the [companion extension](/runtime/companion/overview) (mobile browsers, shared kiosks, locked-down desktops).
+- You want edge caching for chapter images.
+- You are building a hosted MakiNuki app and need a controlled relay.
+
+For personal desktop use, the companion extension is usually faster because it avoids the extra hop.
+
+## Next steps
+
+- [Deploy your own worker](/runtime/worker-proxy/deploy) via one-click Deploy to Workers, manual Wrangler, or GitHub Actions.
+- Read the [endpoint reference](/runtime/worker-proxy/endpoints) for full request/response specs.
+- Review the [security model](/runtime/worker-proxy/security) for allowlist mechanics, SSRF guards, and body limits.

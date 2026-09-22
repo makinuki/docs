@@ -1,0 +1,312 @@
+---
+title: "Web Runtime API Reference"
+sidebarTitle: "Reference"
+description: "Complete public API reference for @makinuki/runtime-web: classes, methods, error types, and constants exported from src/index.ts."
+---
+
+This page documents every public export from `@makinuki/runtime-web`. All classes, interfaces, errors, and constants are grounded in the source at `src/index.ts` and its dependency modules.
+
+## Constants
+
+### `ABI_VERSION`
+
+```ts
+const ABI_VERSION = 1;
+```
+
+The frozen ABI version that the runtime expects from every plugin. Mismatches throw `RegistryError` at load time.
+
+### `DEFAULT_REGISTRY_URL`
+
+```ts
+const DEFAULT_REGISTRY_URL = "https://makinuki.github.io/index.json";
+```
+
+The default registry manifest URL used when `registryUrl` is omitted from `MakiNukiRuntimeOptions`.
+
+### `STORAGE_VALUE_CAP`
+
+```ts
+const STORAGE_VALUE_CAP = 64 * 1024;
+```
+
+Maximum byte length of a single storage value. Exceeding this throws from `makinuki_storage_set`.
+
+## Classes
+
+### `MakiNukiRuntime`
+
+The top-level entry point. Creates a `Registry`, `TransportManager`, and optional `StorageAdapter`.
+
+```ts
+class MakiNukiRuntime {
+  readonly registry: Registry;
+  readonly transport: TransportManager;
+  readonly validate: boolean;
+
+  constructor(options?: MakiNukiRuntimeOptions);
+
+  async registryIndex(): Promise<RegistryIndex>;
+  async transportMode(): Promise<TransportMode | null>;
+  async loadSource(wasmUrlOrId: string): Promise<MakiNukiSource>;
+  async close(): Promise<void>;
+}
+```
+
+<ParamField path="options" type="MakiNukiRuntimeOptions">
+  <Expandable title="properties">
+    <ParamField path="registryUrl" type="string">
+      Custom registry URL. Defaults to `DEFAULT_REGISTRY_URL`.
+    </ParamField>
+
+    <ParamField path="proxyUrl" type="string">
+      Worker proxy base URL.
+    </ParamField>
+
+    <ParamField path="clientToken" type="string">
+      Token for worker proxy authentication.
+    </ParamField>
+
+    <ParamField path="storage" type="StorageAdapter">
+      Custom storage adapter.
+    </ParamField>
+
+    <ParamField path="validate" type="boolean">
+      Enable JSON Schema validation (Node-only for now).
+    </ParamField>
+
+    <ParamField path="transport" type="TransportOptions">
+      Transport selection and configuration.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### `MakiNukiSource`
+
+A thin typed wrapper around a loaded plugin. Each call validates against the ABI 1 schema when `validate` is `true`.
+
+```ts
+class MakiNukiSource {
+  readonly id: string;
+  readonly metadata: SourceMetadata;
+  readonly lastTransportMode: TransportMode | null;
+
+  async getMetadata(): Promise<SourceMetadata>;
+  async getFilters(): Promise<FilterSchema[]>;
+  async search(query?: Partial<SearchQuery>): Promise<PageResult<MangaItem>>;
+  async getDetails(mangaId: string): Promise<MangaDetails>;
+  async getPages(chapterId: string): Promise<PageItem[]>;
+  async fetchImage(page: PageItem): Promise<Blob>;
+  async unscrambleImage(bytes: Uint8Array): Promise<Uint8Array>;
+  async fetchScrambledPage(page: PageItem): Promise<Blob>;
+  async close(): Promise<void>;
+}
+```
+
+### `MakiNukiPlugin`
+
+Low-level Extism wrapper. Loads a WASM binary and exposes plugin exports.
+
+```ts
+class MakiNukiPlugin {
+  static async load(wasmBytes: Uint8Array, functions: Record<string, HostFunction>): Promise<MakiNukiPlugin>;
+  async callStatic<T>(name: string): Promise<T>;
+  async callDynamic<T>(name: string, input: string): Promise<T>;
+  async unscramble(bytes: Uint8Array): Promise<Uint8Array>;
+  async hasExport(name: string): Promise<boolean>;
+  async close(): Promise<void>;
+}
+```
+
+### `Registry`
+
+Fetches and caches the registry manifest. Verifies WASM downloads with SHA-256.
+
+```ts
+class Registry {
+  constructor(registryUrl?: string);
+
+  async index(): Promise<RegistryIndex>;
+  async find(id: string): Promise<RegistryEntry>;
+
+  static async sha256(bytes: Uint8Array): Promise<string>;
+  static async fetchVerifiedWasm(entry: RegistryEntry): Promise<Uint8Array>;
+}
+```
+
+### `TransportManager`
+
+Routes HTTP requests and image fetches through the selected transport mode.
+
+```ts
+class TransportManager {
+  readonly companion: CompanionClient;
+  readonly worker: WorkerClient | null;
+
+  constructor(options?: TransportOptions);
+
+  async detect(): Promise<TransportMode | null>;
+  get lastMode(): TransportMode | null;
+  async fetch(request: HttpRequest): Promise<HttpResponse>;
+  async fetchImage(url: string, headers?: Record<string, string>): Promise<Blob>;
+}
+```
+
+### `WorkerClient`
+
+HTTP relay client for the Cloudflare Worker proxy.
+
+```ts
+class WorkerClient {
+  readonly proxyUrl: string;
+
+  constructor(proxyUrl: string, clientToken?: string, origin?: string);
+
+  async relay(request: HttpRequest): Promise<HttpResponse>;
+  imageUrl(url: string, referer?: string): string;
+}
+```
+
+### `CompanionClient`
+
+Messaging client for the Manifest V3 companion extension.
+
+```ts
+class CompanionClient {
+  async detect(): Promise<boolean>;
+  get isAvailable(): boolean;
+  async request(method: string, url: string, headers?: Record<string, string>, body?: string | null, responseType?: "text" | "arraybuffer"): Promise<CompanionResponse>;
+  async fetch(request: HttpRequest): Promise<HttpResponse>;
+}
+```
+
+### `LocalStorageAdapter`
+
+Browser `localStorage` backed adapter. Falls back to `MemoryStorage` if unavailable.
+
+```ts
+class LocalStorageAdapter implements StorageAdapter {
+  constructor(backend?: Storage | null);
+  async get(key: string): Promise<string | null>;
+  async set(key: string, value: string): Promise<void>;
+}
+```
+
+### `MemoryStorage`
+
+In-memory `Map` backed adapter.
+
+```ts
+class MemoryStorage implements StorageAdapter {
+  async get(key: string): Promise<string | null>;
+  async set(key: string, value: string): Promise<void>;
+}
+```
+
+## Error classes
+
+### `PluginError`
+
+Thrown when a plugin export returns an invalid envelope, an error envelope, or an empty unscramble buffer.
+
+```ts
+class PluginError extends Error {
+  constructor(readonly code: ErrorCode, message: string);
+}
+```
+
+### `RegistryError`
+
+Thrown when the registry manifest cannot be fetched, parsed, or when a source is not found.
+
+```ts
+class RegistryError extends Error {}
+```
+
+### `TransportError`
+
+Thrown when all enabled transports fail, or when a specific mode is misconfigured.
+
+```ts
+class TransportError extends Error {
+  constructor(readonly mode: TransportMode, message: string, readonly cause?: unknown);
+}
+```
+
+## Types
+
+### `TransportMode`
+
+```ts
+type TransportMode = "direct" | "companion" | "worker";
+```
+
+### `TransportOptions`
+
+```ts
+interface TransportOptions {
+  proxyUrl?: string;
+  clientToken?: string;
+  origin?: string;
+  direct?: boolean;
+  companion?: boolean;
+  worker?: boolean;
+  pin?: TransportMode;
+}
+```
+
+### `HttpRequest` and `HttpResponse`
+
+```ts
+interface HttpRequest {
+  url: string;
+  method: string;
+  headers?: Record<string, string>;
+  body?: string | null;
+}
+
+interface HttpResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+}
+```
+
+### `CompanionResponse`
+
+```ts
+interface CompanionResponse {
+  status: number;
+  headers: Record<string, string>;
+  body?: string;
+  bodyBase64?: string;
+}
+```
+
+### `ErrorCode`
+
+```ts
+type ErrorCode =
+  | "CLOUDFLARE_BLOCKED"
+  | "RATE_LIMITED"
+  | "NETWORK_TIMEOUT"
+  | "SESSION_REQUIRED"
+  | "AUTH_EXPIRED"
+  | "NOT_FOUND"
+  | "SOURCE_OFFLINE"
+  | "PARSING_ERROR"
+  | "UNSUPPORTED_MEDIA"
+  | "MEMORY_LIMIT_EXCEEDED"
+  | "UNSCRAMBLE_FAILED";
+```
+
+## Host functions
+
+The runtime exposes four host functions to every plugin under the `makinuki` namespace:
+
+| Function | Input | Output | Behavior |
+| --- | --- | --- | --- |
+| `makinuki_fetch` | `HttpRequest` JSON | `HttpResponse` JSON | Routes through `TransportManager.fetch`. |
+| `makinuki_storage_get` | Key string | Value string or `0n` | Reads from the namespaced `StorageAdapter`. |
+| `makinuki_storage_set` | `{ key, value }` JSON | `0n` | Writes to the namespaced `StorageAdapter`; enforces 64 KB cap. |
+| `makinuki_log` | `{ level?, message? }` JSON | `0n` | Logs to console with `[makinuki:${sourceId}]` prefix. |

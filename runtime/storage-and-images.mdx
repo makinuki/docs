@@ -1,0 +1,114 @@
+---
+title: "Storage Adapters and Image Handling in the Web Runtime"
+sidebarTitle: "Storage and Images"
+description: "Persist per-source key-value state with StorageAdapter, understand the 64 KB value cap, and fetch or unscramble chapter images through the active transport."
+---
+
+The MakiNuki web runtime provides two built-in storage backends and transport-aware image helpers. Plugins use storage to persist session state, cookies, or filter selections across reloads. Images are fetched through the active transport and can be unscrambled when sources use tile-based encryption.
+
+## StorageAdapter
+
+Plugins read and write small key-value pairs through the `makinuki_storage_get` and `makinuki_storage_set` host functions. The runtime maps these to a `StorageAdapter` that you can customize or replace.
+
+```ts
+export interface StorageAdapter {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<void>;
+}
+```
+
+Keys are automatically namespaced per source: the runtime prefixes every key with `${sourceId}:${key}` before calling the adapter.
+
+### Built-in adapters
+
+The runtime ships with two adapters.
+
+#### LocalStorageAdapter
+
+Uses the browser's `localStorage`. This is the default when `localStorage` is available.
+
+```ts
+import { LocalStorageAdapter } from "@makinuki/runtime-web";
+
+const runtime = new MakiNukiRuntime({
+  storage: new LocalStorageAdapter(),
+});
+```
+
+#### MemoryStorage
+
+A pure in-memory `Map` fallback. Used automatically when `localStorage` is absent (e.g., in private mode with storage disabled or in some test environments).
+
+```ts
+import { MemoryStorage } from "@makinuki/runtime-web";
+
+const runtime = new MakiNukiRuntime({
+  storage: new MemoryStorage(),
+});
+```
+
+### Value cap
+
+Every value is capped at 64 KB before storage. If a plugin tries to store a larger string, the host function throws an error.
+
+```ts
+export const STORAGE_VALUE_CAP = 64 * 1024;
+```
+
+<Warning>
+  The cap is measured in bytes after UTF-8 encoding, not string length. A 65,000-character string that includes multi-byte characters can exceed the limit even though its `length` is under 65,536.
+</Warning>
+
+## Fetching images
+
+Each `PageItem` returned by `getPages` contains a `url` and optional `headers`. The runtime's `fetchImage` method routes the request through the active transport and returns a `Blob`.
+
+```ts
+const pages = await source.getPages(chapterId);
+const blob = await source.fetchImage(pages[0]);
+```
+
+The transport layer handles mode-specific details automatically:
+
+- **Direct** applies a default Chrome User-Agent.
+- **Companion** encodes the response as base64 and decodes it back into a `Blob`.
+- **Worker** builds a `GET /proxy?url=&ref=` URL and streams the response with a seven-day immutable cache.
+
+## Scrambled images
+
+Some sources return images that are encrypted or sliced into tiles. A `PageItem` with `isScrambled: true` may include `metadata: ScrambleInfo` describing the layout.
+
+```ts
+interface ScrambleInfo {
+  layout: "slice" | "shift" | "custom";
+  rows: number;
+  cols: number;
+  tileW: number;
+  tileH: number;
+  order: number[];
+}
+```
+
+### Unscrambling API
+
+The runtime provides two methods for handling scrambled pages.
+
+#### `unscrambleImage(bytes)`
+
+Sends a raw `Uint8Array` to the plugin's `unscramble_image` export and returns the decrypted bytes.
+
+```ts
+const scrambled = await transport.fetchImage(page.url, page.headers);
+const bytes = new Uint8Array(await scrambled.arrayBuffer());
+const clean = await source.unscrambleImage(bytes);
+```
+
+#### `fetchScrambledPage(page)`
+
+A convenience helper that fetches the image, unscrambles it, and returns a `Blob` with the correct MIME type. It is implemented as `unscramblePageBlob` in the runtime.
+
+```ts
+const blob = await source.fetchScrambledPage(pages[0]);
+```
+
+If the unscramble export returns an empty buffer, the helper throws a `PluginError` with code `UNSCRAMBLE_FAILED`.

@@ -1,0 +1,143 @@
+---
+title: "Companion Extension Wire Protocol"
+sidebarTitle: "Protocol"
+description: "Full documentation of the window.postMessage wire protocol between the MakiNuki page client and the companion extension bridge, including request shapes, handshake, and security rules."
+---
+
+The MakiNuki Companion extension communicates with the web runtime through a lightweight `window.postMessage` protocol. The page-side `CompanionClient` sends messages, the content script bridge forwards them to the background worker, and responses travel back the same way. This page documents every message shape, timeout, and security rule.
+
+## Message sources
+
+Every message carries a `source` field so the bridge and client can ignore unrelated traffic:
+
+- `"makinuki-page"` for messages sent by the page.
+- `"makinuki-extension"` for messages sent by the extension.
+
+## Availability handshake
+
+Before sending requests, the page checks whether the extension is present with a ping.
+
+### Page sends
+
+```js
+window.postMessage(
+  { source: "makinuki-page", type: "makinuki:ping" },
+  "*"
+);
+```
+
+### Extension replies
+
+```js
+{ source: "makinuki-extension", type: "makinuki:pong" }
+```
+
+The `CompanionClient.detect()` promise resolves to `true` if a pong arrives within 500 ms. If the background worker is unreachable, no pong is sent and the promise resolves to `false`.
+
+## Request message
+
+### Page sends
+
+```js
+window.postMessage(
+  {
+    source: "makinuki-page",
+    type: "makinuki:request",
+    id: "uuid-1",
+    method: "GET",
+    url: "https://api.mangadex.org/manga?limit=1",
+    headers: { "User-Agent": "..." },
+    body: null,
+    responseType: "text", // "text" (default) or "arraybuffer"
+  },
+  "*"
+);
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `source` | `string` | Yes | Must be `"makinuki-page"`. |
+| `type` | `string` | Yes | Must be `"makinuki:request"`. |
+| `id` | `string` | Yes | UUID used to correlate the response. |
+| `method` | `string` | Yes | HTTP method. |
+| `url` | `string` | Yes | Target URL. Must be `http:` or `https:`. |
+| `headers` | `Record<string, string>` | No | Custom request headers. |
+| `body` | `string \| null` | No | Request body. Dropped for GET/HEAD. |
+| `responseType` | `"text" \| "arraybuffer"` | No | Default is `"text"`. |
+
+## Response message
+
+### Extension replies
+
+```js
+{
+  source: "makinuki-extension",
+  type: "makinuki:response",
+  id: "uuid-1",
+  ok: true,
+  status: 200,
+  headers: { "content-type": "application/json" },
+  body: "{\"result\":\"ok\"}",
+  bodyBase64: undefined
+}
+```
+
+Failure responses carry `ok: false`, `status: 0`, and an `error` string:
+
+```js
+{
+  source: "makinuki-extension",
+  type: "makinuki:response",
+  id: "uuid-1",
+  ok: false,
+  status: 0,
+  error: "rejected: invalid url"
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `source` | `string` | `"makinuki-extension"` |
+| `type` | `string` | `"makinuki:response"` |
+| `id` | `string` | Matches the request UUID. |
+| `ok` | `boolean` | Whether the fetch succeeded. |
+| `status` | `number` | HTTP status code, or `0` on failure. |
+| `headers` | `Record<string, string>` | Response headers. |
+| `body` | `string \| undefined` | Text response body. |
+| `bodyBase64` | `string \| undefined` | Base64-encoded bytes when `responseType` was `"arraybuffer"`. |
+
+## Timeouts
+
+| Timeout | Value | Applies to |
+| --- | --- | --- |
+| Ping | 500 ms | Handshake detection (`detect()`) |
+| Request | 60,000 ms | Individual relayed fetch |
+
+If a request times out, the pending promise is rejected with `"companion request timed out"`.
+
+## Security rules
+
+The protocol includes several guards to limit the attack surface:
+
+- **Same-window check**: The content script only accepts messages where `event.source === window`. Cross-window or cross-iframe posts are ignored.
+- **Source validation**: The background worker only accepts messages from its own content scripts (`sender.tab` must be present).
+- **URL scheme**: Only `http:` and `https:` URLs are accepted. Anything else is rejected with `status: 0`.
+- **Hop-by-hop header stripping**: `host` and `content-length` are removed before the upstream fetch.
+- **GET/HEAD body drop**: Bodies are discarded for GET and HEAD requests.
+- **ArrayBuffer encoding**: Binary responses are base64-encoded in `bodyBase64` because `chrome.runtime.sendMessage` cannot transfer `ArrayBuffer` directly.
+
+## Reference implementation
+
+The repository includes a standalone page-side client in `src/client.js` that mirrors the protocol used by `@makinuki/runtime-web`. You can drop it into any page to talk to the extension without importing the full runtime.
+
+```html
+<script src="src/client.js"></script>
+<script>
+  await MakiNukiCompanion.detect();
+  const res = await MakiNukiCompanion.request(
+    "GET",
+    "https://api.mangadex.org/manga?limit=1"
+  );
+  console.log(res.status, res.body);
+</script>
+```

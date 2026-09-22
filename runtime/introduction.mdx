@@ -1,0 +1,47 @@
+---
+title: "MakiNuki Web Runtime: Browser Execution Environment"
+sidebarTitle: "Introduction"
+description: "The MakiNuki web runtime loads registry manifests, verifies WASM plugins via SHA-256, and executes them in a sandboxed Extism environment with a cascading transport manager."
+---
+
+The `@makinuki/runtime-web` package is the browser runtime for MakiNuki WASM scraper plugins. It loads a registry of sources, verifies each `.wasm` binary against a SHA-256 checksum, and executes plugins via Extism with host functions provided under the `makinuki` namespace. The runtime requires WebAssembly JSPI (available in Chromium 123+) and ships with zero runtime dependencies beyond Extism.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="play" href="/runtime/quickstart">
+    Install the package and run your first search in under five minutes.
+  </Card>
+
+  <Card title="Transports" icon="network-wired" href="/runtime/transports">
+    Choose between direct fetch, companion extension, or worker proxy.
+  </Card>
+
+  <Card title="Storage and Images" icon="hard-drive" href="/runtime/storage-and-images">
+    Persist per-source state and fetch or unscramble chapter images.
+  </Card>
+
+  <Card title="API Reference" icon="code" href="/runtime/reference">
+    Full public API surface of the runtime classes and functions.
+  </Card>
+
+  <Card title="ABI Spec" icon="file-code" href="/spec/introduction">
+    The frozen ABI 1 contract that all plugins follow.
+  </Card>
+
+  <Card title="TypeScript PDK" icon="puzzle" href="/pdk/introduction">
+    Build your own plugins with the official TypeScript SDK.
+  </Card>
+</CardGroup>
+
+## What the runtime does
+
+When you create a `MakiNukiRuntime`, it wires together four layers:
+
+1. **Registry** (`Registry`) fetches the public manifest at `https://makinuki.github.io/index.json` (or any custom URL) and caches it. Each entry carries the plugin metadata, download URL, and SHA-256 digest.
+2. **Transport** (`TransportManager`) selects the best available network path. It can pin `direct`, `companion`, or `worker`, or auto-detect in that order.
+3. **Plugin loader** (`MakiNukiPlugin`) instantiates the WASM binary through Extism and wires the four `makinuki:*` host functions.
+4. **Source wrapper** (`MakiNukiSource`) exposes a typed JavaScript API around the raw plugin exports (`search`, `get_details`, `get_pages`, `get_metadata`, `get_filters`).
+
+## Requirements
+
+- A Chromium-based browser with JSPI support: Chrome 123+, Edge 123+, or Chrome for Android.
+- No polyfills or bundler plugins are required. The package is an ES module with a single default export.

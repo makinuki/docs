@@ -1,0 +1,56 @@
+---
+title: "MakiNuki Companion: Zero-CORS Browser Extension"
+sidebarTitle: "Overview"
+description: "The MakiNuki Companion is a Manifest V3 extension that gives the web runtime zero-CORS network access with full headers and cookies on Chrome and Chromium."
+---
+
+The MakiNuki Companion is a Manifest V3 browser extension that acts as a zero-CORS transport bridge. When installed and granted host permissions, it lets the web runtime execute `fetch` requests through the extension's background service worker, bypassing browser CORS restrictions entirely. This is the fastest and most reliable transport mode for desktop users on Chrome or Chromium.
+
+## How it works
+
+The extension has three parts that work together:
+
+1. **Background service worker** (`src/background.js`): Listens for relayed requests from the content script and executes native `fetch()` with full headers and target-domain cookies.
+2. **Content script bridge** (`src/bridge.js`): Injected into every page at `document_start`. Relays `window.postMessage` traffic between the page and the background worker.
+3. **Popup** (`popup/popup.html`): Provides a UI to grant `optional_host_permissions` so the bridge can reach all URLs.
+
+The runtime does not communicate with the extension directly. Instead, the page-side `CompanionClient` sends messages over `window.postMessage`, the bridge forwards them via `chrome.runtime.sendMessage`, and the background worker executes the request and returns the response.
+
+## Requirements
+
+- Chrome, Chromium, or any Chromium-derived browser that supports Manifest V3.
+- The extension must be installed as an unpacked extension during development. There is no Chrome Web Store listing yet.
+- Host permissions must be granted manually through the popup.
+
+## When to use the companion
+
+Use the companion extension when:
+
+- You are running the MakiNuki web runtime in a desktop browser.
+- The sources you read block cross-origin requests (most do).
+- You want full header and cookie support without hosting a worker proxy.
+
+If you need a shared deployment or cannot install extensions (mobile browsers, locked-down environments), use the [worker proxy](/runtime/worker-proxy/overview) instead.
+
+## Architecture at a glance
+
+```text
+Page (runtime-web CompanionClient)
+  | window.postMessage { source: "makinuki-page", type: "makinuki:request", ... }
+  v
+Content script (src/bridge.js)
+  | chrome.runtime.sendMessage
+  v
+Background worker (src/background.js)
+  | native fetch()
+  v
+Upstream API / CDN
+```
+
+The same path is used in reverse for responses, with `source: "makinuki-extension"`.
+
+## Next steps
+
+- [Install the companion extension](/runtime/companion/install) step by step.
+- Read the full [wire protocol](/runtime/companion/protocol) for message shapes and security rules.
+- Learn about the three [transport modes](/runtime/transports) and how the companion fits in.

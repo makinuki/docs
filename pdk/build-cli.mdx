@@ -1,0 +1,89 @@
+---
+title: "makinuki-build CLI reference and options"
+sidebarTitle: "Build CLI"
+description: "Full reference for the makinuki-build CLI: input, interface, output paths, optimization flag, and how the two-step build pipeline works."
+---
+
+The `makinuki-build` CLI ships with `@makinuki/pdk` and compiles a TypeScript or JavaScript entry into a MakiNuki WebAssembly plugin. It runs esbuild to bundle your entry, then invokes `extism-js` to produce the final `.wasm`.
+
+## Usage
+
+```sh
+makinuki-build <input.ts|js> [options]
+```
+
+## Options
+
+<ParamField path="input" type="string" required>
+  Path to your plugin entry file. Passed as the first positional argument.
+</ParamField>
+
+<ParamField path="-i, --interface" default="src/index.d.ts" type="string">
+  TypeScript interface file describing the plugin exports and host imports. Forwarded to `extism-js` as `-i`.
+</ParamField>
+
+<ParamField path="-o, --output" default="dist/plugin.wasm" type="string">
+  Output `.wasm` path. The output directory is created if missing.
+</ParamField>
+
+<ParamField path="--skip-opt" default="false" type="boolean">
+  Skip the final `wasm-opt` optimization pass. Faster builds during development; larger artifacts.
+</ParamField>
+
+<ParamField path="-h, --help" type="boolean">
+  Print usage and exit.
+</ParamField>
+
+## How it works
+
+The build is two stages:
+
+<Steps>
+  <Step title="Bundle with esbuild">
+    Your entry is bundled into a temporary CommonJS file next to the output:
+
+    ```js Build settings
+    {
+      entryPoints: [<input>],
+      outfile: <outputDir>/.<basename>.bundle.js,
+      bundle: true,
+      format: "cjs",
+      target: ["es2020"],
+      platform: "neutral",
+      mainFields: ["main", "module"],
+      legalComments: "none",
+    }
+    ```
+
+    `platform: "neutral"` prevents Node.js and browser polyfills from being pulled in. Dependencies that transitively import `node:*` builtins fail here.
+  </Step>
+  <Step title="Compile with extism-js">
+    The bundle is handed to `extism-js`:
+
+    ```sh
+    extism-js <bundle> -i <interface> -o <output> [--skip-opt]
+    ```
+
+    The temporary bundle file is removed after `extism-js` returns, regardless of exit status.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<Accordion title="extism-js was not found on PATH">
+  The CLI prints:
+
+  ```text
+  extism-js was not found on PATH. Install the extism-js compiler and binaryen tools (wasm-merge, wasm-opt); see the pdk-ts README for setup instructions.
+  ```
+
+  Install `extism-js` from [`extism/js-pdk`](https://github.com/extism/js-pdk/) and the binaryen `wasm-merge` and `wasm-opt` tools from [`WebAssembly/binaryen`](https://github.com/WebAssembly/binaryen/), then re-run the build.
+</Accordion>
+
+<Accordion title="esbuild fails resolving a dependency">
+  The bundler resolves packages through their `main` and `module` fields. Dependencies that only ship a TypeScript entry point, or that import Node.js builtins transitively, fail under `platform: "neutral"`. Replace the dependency with a WASM-safe alternative. See [writing safe plugins](/pdk/writing-safe-plugins) for common pitfalls.
+</Accordion>
+
+<Accordion title="Plugin loads but a host import is missing">
+  Host imports declared in the `extism:host` module of your `.d.ts` file must match the imports the host actually provides. The MakiNuki host exposes `makinuki_fetch`, `makinuki_storage_get`, `makinuki_storage_set`, and `makinuki_log`; the starter template already declares all four.
+</Accordion>

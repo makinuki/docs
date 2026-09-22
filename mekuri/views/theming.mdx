@@ -1,0 +1,85 @@
+---
+title: "Theming Mekuri views with CSS variables"
+sidebarTitle: "Theming"
+description: "theme prebuilt views with CSS custom properties and address engine state via data attributes"
+---
+
+The prebuilt views ship unstyled and use CSS custom properties for their chrome. You can override the default look by setting variables on any ancestor, or replace the default stylesheet entirely while keeping the same structural data attributes.
+
+## CSS custom properties
+
+These variables are read by the default stylesheet and by the inline styles of several primitives:
+
+| Token | Default | Used by |
+| --- | --- | --- |
+| `--mekuri-bg` | `#101014` | Container and view backgrounds |
+| `--mekuri-fg` | `#f5f5f7` | Foreground color |
+| `--mekuri-hud-bg` | `rgba(16, 16, 20, 0.72)` | HUD toolbar background |
+| `--mekuri-accent` | `#6ea8ff` | Focus outlines and zone overlay borders |
+| `--mekuri-hud-gap` | `8px` | HUD padding and control spacing |
+| `--mekuri-hud-radius` | `8px` | HUD and button border radius |
+| `--mekuri-safe-area-top` | `0px` | Top safe-area inset |
+| `--mekuri-safe-area-bottom` | `0px` | Bottom safe-area inset |
+| `--mekuri-safe-area-left` | `0px` | Left safe-area inset |
+| `--mekuri-safe-area-right` | `0px` | Right safe-area inset |
+
+### Example override
+
+Set the tokens on a wrapper or the document root before mounting the reader:
+
+```css
+:root {
+  --mekuri-bg: #fafafa;
+  --mekuri-fg: #1a1a1a;
+  --mekuri-hud-bg: rgba(250, 250, 250, 0.88);
+  --mekuri-accent: #2563eb;
+  --mekuri-hud-gap: 12px;
+  --mekuri-hud-radius: 12px;
+  --mekuri-safe-area-top: env(safe-area-inset-top);
+  --mekuri-safe-area-bottom: env(safe-area-inset-bottom);
+}
+```
+
+## Data attributes
+
+Every rendered element carries a `data-mekuri-*` attribute so you can style or query it without relying on DOM order. Notable attributes include:
+
+| Attribute | Element | Values |
+| --- | --- | --- |
+| `data-mekuri-control` | HUD buttons | `prev`, `next`, `zoom-in`, `zoom-out`, `zoom-reset`, `hud` |
+| `data-mekuri-src-state` | Page boxes | `ready`, `pending`, `failed` |
+| `data-mekuri-hud` | HUD toolbar | Always present when rendered |
+| `data-mekuri-zone-overlay` | Zone preview layer | Always present when `showZoneOverlay` is true |
+| `data-mekuri-boundary` | Boundary mount point | Rendered when `boundarySlot` is provided |
+| `data-mekuri-paged-page` | Pages inside `PagedView` | Present on every page wrapper |
+| `data-mekuri-page` | Pages inside any view | Present on every page wrapper |
+| `data-mode` | View root | `single`, `double`, `continuous-vertical`, `continuous-webtoon` |
+| `data-direction` | View root | `ltr`, `rtl` |
+| `data-zoomed` | View root | `true` when zoom scale is greater than `1` |
+| `data-hud-visible` | View root | `true` when the HUD is open |
+
+You can use these attributes to write selectors that react to engine state:
+
+```css
+[data-mekuri-src-state="pending"] {
+  opacity: 0.5;
+}
+
+[data-mekuri-src-state="failed"] {
+  background: var(--mekuri-accent);
+}
+```
+
+## Replacing the default stylesheet
+
+You can drop `<MekuriViewStyles />` entirely and provide your own stylesheet using the same data attributes and CSS variables. The views keep their structural inline styles regardless, so layout remains intact even when the default look is removed.
+
+```tsx
+import { WebtoonView } from "@makinuki/mekuri/views";
+
+function Reader({ engine, pages }) {
+  return <WebtoonView engine={engine} pages={pages} />;
+}
+```
+
+In this case the view still renders functional HUD controls and page layouts, and you style them with your own CSS rules targeting `data-mekuri-*` selectors.

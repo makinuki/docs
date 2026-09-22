@@ -1,0 +1,34 @@
+---
+title: "Host and library ownership boundary in Mekuri"
+sidebarTitle: "Host Ownership"
+description: "Mekuri renders reading state and nothing else. Learn what the library never does and which reader concerns the host must own."
+---
+
+Mekuri owns reading state, page math, and gesture handling, while the host owns everything outside the reader container. This page lists exactly which side of the boundary owns every reader concern.
+
+## Responsibilities
+
+| Concern | Owner |
+| --- | --- |
+| Reading position, spreads, zoom bounds, boundary detection | mekuri engine |
+| Tap zones, gestures, keyboard map, HUD visibility | mekuri engine |
+| Page markup, layout, and any DOM outside the reader container | host |
+| Fetching images, authentication, proxying, unscrambling, cache busting | host |
+| Persisting the reading position and reader settings | host |
+| Chapter navigation and content loading | host |
+| Analytics, telemetry, and crash reporting | host |
+
+<Warning>
+  Mekuri never does any of the following in any surface:
+
+  - No network requests of any kind, including image fetches and prefetches.
+  - No storage reads or writes: no cookies, `localStorage`, `IndexedDB`, or filesystem access.
+  - No global state: no provider, store, or module-level mutable singleton.
+  - No writes to the host document beyond the reader container, except the fullscreen module, which restores the scroll offsets and styles it changed.
+  - No analytics, telemetry, or logging.
+  - No page scrapers: the engine never parses markup it did not render.
+</Warning>
+
+<Tip>
+  The only exception to the "no DOM writes outside the reader container" rule is the fullscreen module. When entering fullscreen, it may change scroll offsets and styles on the host document; it restores those values when exiting fullscreen so the host layout is unaffected.
+</Tip>

@@ -1,0 +1,74 @@
+---
+title: "Writing safe plugins for the WASM sandbox"
+sidebarTitle: "Writing Safe Plugins"
+description: "Constraints for TypeScript scrapers running in the MakiNuki WebAssembly sandbox: no Node APIs, WASM-safe deps, JSPI, and TS 7 typing."
+---
+
+MakiNuki plugins run in a WebAssembly sandbox with no Node.js and no browser APIs. These constraints affect which dependencies you can use, how you configure your build, and how you run harnesses locally.
+
+## No Node.js or browser APIs
+
+The compiled bundle runs in a WebAssembly sandbox. There is no `fs`, no `net`, no `process`, no `window`, no `document`.
+
+<Warning>
+  Never import a package that pulls Node.js builtins transitively. The esbuild bundler runs under `platform: "neutral"` and any import of `node:fs`, `node:crypto`, `node:buffer`, or similar fails the build.
+</Warning>
+
+If you need HTTP, storage, or logging, use the [host services](/pdk/host-services) wrappers exposed by `@makinuki/pdk`. If you need DOM parsing, use `parseHTML` from the PDK.
+
+## DOM parsing must be WASM-safe
+
+Use `cheerio/slim` (the htmlparser2 backend), which is what `parseHTML` uses under the hood.
+
+<Warning>
+  Do not import the full `cheerio` package. It drags in `undici`, `encoding-sniffer`, and `iconv-lite`, which import `node:*` builtins and fail esbuild bundling under `platform: neutral`.
+</Warning>
+
+If you need to bundle an alternative HTML or XML parser, verify it ships a pure JavaScript entry point and does not touch Node builtins.
+
+## Module resolution: `main` and `module` fields
+
+The build resolves packages through the `main` and `module` fields in each dependency's `package.json`. Dependencies that expose only a TypeScript entry point without a compiled JS entry cannot be bundled and will fail to resolve.
+
+If you own the dependency, add a compiled JS `main` (and optional `module`) alongside the types. If you do not, fork it or vendor a compiled build.
+
+## Live-host testing requires JSPI
+
+Extism async host functions require WebAssembly Suspending (JSPI). Node 22 keeps JSPI behind an experimental flag.
+
+```sh
+node --experimental-wasm-jspi ./scripts/run-plugin.js
+```
+
+Run your local harnesses and integration runners with `--experimental-wasm-jspi`. Node 20 does not support JSPI; testing against a live host requires Node 22 or newer.
+
+## TypeScript 7 and `@types/node`
+
+TypeScript 7's native type stripping does not auto-include `@types/node` even when the package is installed. Any `tsconfig.json` that compiles scripts using Node.js APIs (build scripts, local harnesses, release tooling) must set `"types"` explicitly:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "types": ["node"]
+  }
+}
+```
+
+This does not affect the plugin bundle itself, which must not use Node APIs at runtime. It only affects build tooling that runs on Node.
+
+## Checklist
+
+<Steps>
+  <Step title="Audit your dependency tree">
+    Run your build. If esbuild reports a module resolution error mentioning `node:*` or a Node builtin, replace the offending dependency.
+  </Step>
+  <Step title="Prefer PDK utilities over external packages">
+    Use `fetch`, `storageGet`/`storageSet`, `log`, `parseHTML`, `resolveUrl`, `cleanText`, and `parseChapterNumber` from `@makinuki/pdk` before reaching for something else.
+  </Step>
+  <Step title="Test against a live host with JSPI enabled">
+    Run harnesses on Node 22+ with `--experimental-wasm-jspi`.
+  </Step>
+  <Step title="Type your build scripts explicitly">
+    Set `"types": ["node"]` in the tsconfig of any project that runs Node scripts under TS 7.
+  </Step>
+</Steps>

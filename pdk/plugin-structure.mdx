@@ -1,0 +1,110 @@
+---
+title: "Plugin structure: required and optional ABI exports"
+sidebarTitle: "Plugin Structure"
+description: "The MakiNuki ABI exports a plugin implements, the PluginResult envelope for dynamic responses, and how to wire input and output."
+---
+
+A MakiNuki plugin exposes a fixed set of exported functions defined by the MakiNuki ABI. This page covers which exports are required, how static and dynamic responses differ, and the input/output pattern every export follows.
+
+## Required exports
+
+Every plugin must implement these five functions. Their names and signatures are declared in the `main` module of your interface file:
+
+| Export | Purpose |
+| --- | --- |
+| `get_metadata` | Returns `SourceMetadata` as raw JSON. |
+| `get_filters` | Returns the filter schema as raw JSON: an array of `FilterSchema`. |
+| `search` | Reads a `SearchQuery`, returns a `PluginResult<PageResult<MangaItem>>`. |
+| `get_details` | Reads a manga id, returns a `PluginResult<MangaDetails>`. |
+| `get_pages` | Reads a chapter id, returns a `PluginResult<PageItem[]>`. |
+
+## Optional exports
+
+<ParamField path="unscramble_image" type="(inputPtr: I32) => I32">
+  Reserved for sources that scramble page images. When implemented, the host calls this export with the scrambled image bytes and the `ScrambleInfo` metadata attached to the `PageItem`.
+</ParamField>
+
+## Static vs dynamic responses
+
+The ABI splits exports into two shapes:
+
+- **Static exports** (`get_metadata`, `get_filters`) return their payload as raw JSON. There is no envelope; the host reads the value directly.
+- **Dynamic exports** (`search`, `get_details`, `get_pages`, `unscramble_image`) wrap their payload in the `PluginResult<T>` envelope so failures carry a machine-readable code and message.
+
+```ts PluginResult<T>
+type PluginResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: ErrorCode; message: string } };
+```
+
+Use the helpers to build the envelope:
+
+```ts
+import { ok, fail } from "@makinuki/pdk";
+
+ok({ page: 1, hasNextPage: false, items: [] });
+fail("NOT_FOUND", "no manga matched that id");
+```
+
+See [error codes](/pdk/reference/errors) for the complete `ErrorCode` union and [types](/pdk/reference/types) for every payload shape.
+
+## The input/output pattern
+
+Every dynamic export follows the same three steps:
+
+<Steps>
+  <Step title="Read the input string">
+    ```ts
+    const input = Host.inputString();
+    const query = JSON.parse(input) as SearchQuery;
+    ```
+  </Step>
+  <Step title="Produce a PluginResult">
+    ```ts
+    const result = ok({ page: query.page, hasNextPage: false, items });
+    // or
+    const result = fail("SOURCE_OFFLINE", "upstream returned 502");
+    ```
+  </Step>
+  <Step title="Write the output string">
+    ```ts
+    Host.outputString(JSON.stringify(result));
+    return 0;
+    ```
+  </Step>
+</Steps>
+
+## Minimal search export
+
+```ts search example
+import { ok, fail, fetch, parseHTML, cleanText } from "@makinuki/pdk";
+import type { SearchQuery, MangaItem, PageResult, PluginResult } from "@makinuki/pdk";
+
+export function search(): number {
+  const query = JSON.parse(Host.inputString()) as SearchQuery;
+  try {
+    const res = fetch({
+      url: `https://example.com/search?q=${encodeURIComponent(query.query)}&page=${query.page}`,
+    });
+    const $ = parseHTML(res.body);
+    const items: MangaItem[] = $(".result").map((_, el) => ({
+      id: $(el).attr("data-id") ?? "",
+      title: cleanText($(el).find(".title").text()),
+      coverUrl: $(el).find("img").attr("src"),
+    })).get();
+    const result: PluginResult<PageResult<MangaItem>> = ok({
+      page: query.page,
+      hasNextPage: items.length === 25,
+      items,
+    });
+    Host.outputString(JSON.stringify(result));
+  } catch (err) {
+    Host.outputString(JSON.stringify(fail("PARSING_ERROR", String(err))));
+  }
+  return 0;
+}
+```
+
+<Note>
+  The ABI itself is defined in [`makinuki/spec`](https://github.com/makinuki/spec). This page covers what a plugin author needs to know to satisfy it; the spec is authoritative for wire formats.
+</Note>

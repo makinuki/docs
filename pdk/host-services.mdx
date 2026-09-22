@@ -1,0 +1,147 @@
+---
+title: "Host services: fetch, storage, logging, and helpers"
+sidebarTitle: "Host Services"
+description: "Call MakiNuki host imports from a plugin using PDK wrappers for HTTP, key-value storage, logging, and DOM parsing utilities."
+---
+
+MakiNuki hosts expose four imports that plugins call to reach the outside world: `makinuki_fetch`, `makinuki_storage_get`, `makinuki_storage_set`, and `makinuki_log`. The PDK wraps each one in an ergonomic TypeScript function so you never touch pointer math directly.
+
+## HTTP: `fetch`
+
+```ts
+import { fetch, MakiNukiHttpError, type HttpRequest, type HttpResponse } from "@makinuki/pdk";
+
+const res: HttpResponse = fetch({
+  url: "https://example.com/api/list",
+  method: "GET",
+  headers: { "User-Agent": "makinuki-plugin/0.1.0" },
+});
+
+if (res.status === 200) {
+  const items = JSON.parse(res.body);
+}
+```
+
+<ParamField path="req" type="HttpRequest" required>
+  Request payload with `url`, optional `method` (default `GET`), optional `headers`, and optional `body`.
+</ParamField>
+
+<ResponseField name="status" type="number">
+  HTTP status code.
+</ResponseField>
+
+<ResponseField name="headers" type="Record<string, string>">
+  Response headers.
+</ResponseField>
+
+<ResponseField name="body" type="string">
+  Response body as text.
+</ResponseField>
+
+On host-side failures, `fetch` throws a `MakiNukiHttpError`:
+
+<ParamField path="MakiNukiHttpError.code" type="string">
+  The `error` field returned by the host (e.g. `CLOUDFLARE_BLOCKED`, `NETWORK_TIMEOUT`).
+</ParamField>
+
+<ParamField path="MakiNukiHttpError.status" type="number | undefined">
+  HTTP status code, when available.
+</ParamField>
+
+<ParamField path="MakiNukiHttpError.url" type="string | undefined">
+  Request URL, when available.
+</ParamField>
+
+```ts Handling fetch errors
+import { fetch, fail, MakiNukiHttpError } from "@makinuki/pdk";
+
+try {
+  const res = fetch({ url });
+  // ...
+} catch (err) {
+  if (err instanceof MakiNukiHttpError && err.code === "CLOUDFLARE_BLOCKED") {
+    return fail("CLOUDFLARE_BLOCKED", err.message);
+  }
+  return fail("NETWORK_TIMEOUT", String(err));
+}
+```
+
+## Key-value storage: `storageGet` and `storageSet`
+
+Plugins can persist opaque strings across invocations. Storage is keyed per source and owned by the host.
+
+```ts
+import { storageGet, storageSet } from "@makinuki/pdk";
+
+const token = storageGet("session_token"); // string | null
+storageSet("session_token", newToken);
+```
+
+<ParamField path="storageGet(key)" type="(key: string) => string | null">
+  Returns the stored value, or `null` when the key is unset. Returns `null` on host-side errors as well.
+</ParamField>
+
+<ParamField path="storageSet(key, value)" type="(key: string, value: string) => void">
+  Sets or overwrites the value for `key`.
+</ParamField>
+
+## Logging: `log`
+
+```ts
+import { log } from "@makinuki/pdk";
+
+log("info", "loaded 25 items");
+log("warn", "rate limit near");
+```
+
+<ParamField path="log(level, message)" type="(level: LogLevel, message: string) => void">
+  `LogLevel` is `\"debug\" | \"info\" | \"warn\" | \"error\"`. Messages surface in the host's log stream.
+</ParamField>
+
+## DOM parsing: `parseHTML`
+
+```ts
+import { parseHTML } from "@makinuki/pdk";
+
+const $ = parseHTML(html);
+const titles = $(".manga .title").map((_, el) => $(el).text()).get();
+```
+
+`parseHTML(html)` returns a `cheerio.CheerioAPI` built on the `cheerio/slim` htmlparser2 backend. The slim build is the only WASM-safe cheerio entry.
+
+<Warning>
+  Do not import the full `cheerio` package. It transitively imports `undici`, `encoding-sniffer`, and `iconv-lite`, all of which pull Node.js builtins and fail esbuild bundling under `platform: neutral`. See [writing safe plugins](/pdk/writing-safe-plugins).
+</Warning>
+
+## String and URL utilities
+
+Small helpers exported alongside the host wrappers:
+
+<ParamField path="resolveUrl(base, rel)" type="(base: string, rel: string) => string">
+  Resolves a relative URL against a base URL. Returns `rel` unchanged when parsing fails.
+</ParamField>
+
+<ParamField path="cleanText(value)" type="(value: string | null | undefined) => string">
+  Normalizes non-breaking spaces to spaces, strips `<br>` and other HTML tags, collapses whitespace, and trims. Returns `""` for `null`/`undefined`.
+</ParamField>
+
+<ParamField path="parseChapterNumber(text)" type="(text: string) => number | null">
+  Extracts the first numeric run from a chapter label (e.g. `"Chapter 12.5"` returns `12.5`). Accepts `.` or `,` as the decimal separator. Returns `null` when no number is present.
+</ParamField>
+
+## Underlying host imports
+
+The wrappers above route through the host imports declared in the `extism:host` module of your interface file:
+
+```ts template/index.d.ts
+declare module "extism:host" {
+  interface makinuki {
+    makinuki_fetch(ptr: I64): I64;
+    makinuki_storage_get(ptr: I64): I64;
+    makinuki_storage_set(ptr: I64): I64;
+    makinuki_log(ptr: I64): I64;
+  }
+}
+```
+
+You never call these directly; import the wrappers from `@makinuki/pdk` instead.

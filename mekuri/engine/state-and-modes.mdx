@@ -1,0 +1,88 @@
+---
+title: "Reading state, modes, direction, and zoom"
+sidebarTitle: "State & Modes"
+description: "Choose reading modes and directions, control state from your host, and configure zoom behavior with the Mekuri engine."
+---
+
+The Mekuri engine tracks everything a reader needs: the current page, mode, direction, zoom level, and derived values such as spreads and failures. You can let the engine own state internally, or you can own it from the host and mirror changes back through the controlled-state contract.
+
+## Modes and direction
+
+`MekuriMode` controls how pages are grouped and displayed:
+
+- `single` : one page per spread. Navigation moves one page at a time.
+- `double` : two portrait pages per spread, with cover and landscape isolation rules. Navigation moves one spread at a time.
+- `continuous-vertical` : a vertically scrollable column of pages, one per row.
+- `continuous-webtoon` : a vertically scrollable column with no gap between pages, intended for long-form webtoon strips.
+
+`MekuriDirection` is `ltr` or `rtl`. The engine applies this to page order, zone action swapping, and keyboard dispatch. Spread grouping itself is direction-independent; only placement within a spread changes.
+
+Set the mode or direction imperatively:
+
+```ts
+engine.setMode("double");
+engine.setDirection("rtl");
+```
+
+## Controlled vs uncontrolled
+
+In uncontrolled mode, the engine owns `pageIndex`, `mode`, `direction`, `zoomScale`, and `spreadConfig`. Pass `initialState` to seed the starting values:
+
+```ts
+const engine = createMekuriEngine({
+  pages,
+  initialState: {
+    pageIndex: 0,
+    mode: "single",
+    direction: "ltr",
+    zoomScale: 1,
+    spreadConfig: { firstPageIsCover: true, landscapeThreshold: 1.2 },
+  },
+});
+```
+
+In controlled mode, your host owns those same fields. Pass `state` and `onStateChange` instead of `initialState`:
+
+```ts
+const engine = createMekuriEngine({
+  pages,
+  state: controlledState,
+  onStateChange: (patch) => setControlledState((prev) => ({ ...prev, ...patch })),
+});
+```
+
+Actions such as `next()` or `setMode()` optimistically update the engine's internal mirror and emit the changed subset through `onStateChange`. When your component re-renders with reconciled state, call `syncControlled(state)` so the mirror stays in sync. In React, `useMekuriEngine` performs this reconciliation automatically during render. A compliant host never observes drift between its state and engine output.
+
+## Zoom
+
+The engine clamps zoom to a configurable range. Defaults are `maxZoomScale: 4` and `zoomStep: 1.5`. Setting `maxZoomScale` to `1` disables zoom entirely.
+
+```ts
+engine.zoomIn();       // multiplies by zoomStep
+engine.zoomOut();      // divides by zoomStep, floor is 1
+engine.resetZoom();    // returns to 1
+engine.setZoomScale(2.5, { x: 100, y: 200 });
+```
+
+The optional `origin` on `setZoomScale` is informational for the layer that applies the transform; the engine stores the scale only, so matrix math stays with the code that owns the DOM.
+
+Read the current bounds with `getZoomBounds()`:
+
+```ts
+const { min, max } = engine.getZoomBounds();
+```
+
+## Derived state
+
+`MekuriDerivedState` values are computed by the engine and exposed on every `MekuriState` snapshot:
+
+| Field | Description |
+| --- | --- |
+| `totalPages` | Number of pages in the current chapter. |
+| `activeSpreads` | Grouped page indices. In `double` mode, each inner array is one spread; in other modes, it is the identity (one page per spread). |
+| `isZoomLocked` | `true` while `zoomScale > 1`. Navigation is locked so gestures pan instead of turning pages. |
+| `isHUDVisible` | Current visibility of the reader HUD. Toggle with `toggleHUD()`. |
+| `activeZoneMap` | The tap zone map currently in use, including any custom zones. |
+| `failures` | Serializable registry of pages that failed to resolve or load, keyed by page `id`. |
+
+Subscribe to snapshots reactively with `engine.subscribe(listener)`, or read the current snapshot with `engine.getState()`.

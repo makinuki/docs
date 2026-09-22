@@ -1,0 +1,121 @@
+---
+title: "Image pipeline, resolvers, and failure retries"
+sidebarTitle: "Image Pipeline"
+description: "Learn how the host resolves image sources, how the engine schedules retries and tracks failures, and how to wire an img element into the pipeline."
+---
+
+The Mekuri engine never fetches images, makes network requests, or touches storage. Instead, it provides a structured pipeline where the host resolves sources, the view reports load outcomes, and the engine handles attempt counting, retry scheduling, and the failure registry.
+
+## Resolve sources
+
+When a page is first needed, the engine calls your `resolveSrc` callback. You own authentication, proxying, unscrambling, and cache busting. The attempt number increases on every retry, so you can key cache-busting logic on it.
+
+```ts
+const engine = createMekuriEngine({
+  pages,
+  resolveSrc: async (page, attempt, constraints) => {
+    const base = page.metadata?.src as string;
+    const url = new URL(base);
+    url.searchParams.set("v", String(attempt));
+    return url.toString();
+  },
+});
+```
+
+If you do not provide `resolveSrc`, the engine reads `page.metadata.src` as a fallback.
+
+## Report load outcomes
+
+The view layer tells the engine what happened after the source is set on an image element:
+
+- `engine.reportPageLoaded(pageId)` clears any failure and cancels pending retries for that page.
+- `engine.reportPageLoadFailed(pageId, code, message)` records a load-stage failure and schedules an automatic retry while attempts remain.
+
+You can also inspect pipeline state:
+
+- `engine.getPageRequest(pageId)` returns the current attempt counter, resolved `src`, failure record, and whether a retry is scheduled.
+- `engine.resolvePageSrc(pageId)` advances to the current attempt and resolves it through your `resolveSrc` hook.
+
+## Retries and failures
+
+The engine retries automatically with exponential backoff. Defaults:
+
+- `maxAutoRetries` defaults to `2`, so a page is resolved at most `3` times total.
+- `retryDelayMs` defaults to `400` ms and doubles per attempt.
+
+You can override the base delay or inject a custom scheduler for testing:
+
+```ts
+const engine = createMekuriEngine({
+  pages,
+  maxAutoRetries: 3,
+  retryDelayMs: 600,
+  scheduleRetry: (callback, delayMs) => {
+    const handle = setTimeout(callback, delayMs);
+    return () => clearTimeout(handle);
+  },
+});
+```
+
+Failure codes are stable strings you can match on the host:
+
+- `RESOLVE_FAILED`: your `resolveSrc` callback threw or rejected.
+- `IMAGE_LOAD_FAILED`: the image element reported a load error.
+
+Each `MekuriFailureRecord` includes the attempt number, the stage (`"resolve"` or `"load"`), the machine-readable `code`, and a human-readable `message`.
+
+You can retry a single page immediately or retry every failing page at once:
+
+```ts
+engine.retryPage(pageId);
+engine.retryAllFailures();
+```
+
+## Preload window
+
+The engine computes a bounded preload window around the current reading position so the host can warm images ahead of the reader:
+
+```ts
+const indices = engine.getPreloadWindow(); // number[]
+```
+
+The default `preloadBuffer` is `{ forward: 3, backward: 1 }`, meaning up to three pages ahead and one behind are warmed. You can configure this at creation:
+
+```ts
+const engine = createMekuriEngine({
+  pages,
+  preloadBuffer: { forward: 5, backward: 2 },
+});
+```
+
+## Wiring an image element
+
+Here is a minimal example of wiring an `<img>` into the pipeline:
+
+```tsx
+function PageImage({ engine, pageId }) {
+  const request = engine.getPageRequest(pageId);
+
+  useEffect(() => {
+    if (request && !request.src && !request.retryScheduled) {
+      engine.resolvePageSrc(pageId);
+    }
+  }, [request?.attempt]);
+
+  if (!request?.src) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <img
+      src={request.src}
+      onLoad={() => engine.reportPageLoaded(pageId)}
+      onError={() =>
+        engine.reportPageLoadFailed(pageId, "IMAGE_LOAD_FAILED", "Image failed to load")
+      }
+    />
+  );
+}
+```
+
+The engine advances the attempt, resolves the source, and schedules retries automatically. The view only reports success or failure and reacts to the attempt counter.

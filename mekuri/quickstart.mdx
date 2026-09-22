@@ -1,0 +1,124 @@
+---
+title: "Quickstart: build a reader with Mekuri"
+sidebarTitle: "Quickstart"
+description: "Get started with Mekuri by installing the package, choosing a path, and wiring the engine to your markup or using the prebuilt views."
+---
+
+This guide gets you from installation to a working reader in a few minutes. You can either wire the headless engine to your own markup or drop in the prebuilt views.
+
+<Steps>
+  <Step title="Install the package">
+    Install Mekuri along with its peer dependencies.
+
+    <CodeGroup>
+
+    ```sh npm
+    npm install @makinuki/mekuri react react-dom
+    ```
+
+    ```sh pnpm
+    pnpm add @makinuki/mekuri react react-dom
+    ```
+
+    ```sh yarn
+    yarn add @makinuki/mekuri react react-dom
+    ```
+
+    </CodeGroup>
+  </Step>
+  <Step title="Choose a path">
+    Mekuri offers two integration styles. Use the headless `useMekuriEngine` hook when you want full control over the markup, image loading, and styling. Use the prebuilt `PagedView` or `WebtoonView` components when you want a ready-made reader surface.
+  </Step>
+  <Step title="Wire the engine with your host markup">
+    The following example imports `useMekuriEngine`, defines `resolveSrc`, handles `onPositionSample`, `onBoundaryReached`, and wires the container, viewport, and image loading lifecycle.
+
+    ```tsx title="Reader.tsx"
+    import { useMekuriEngine } from "@makinuki/mekuri/engine";
+    import type { MekuriPage } from "@makinuki/mekuri/engine";
+    
+    function Reader({ pages, onChapterEnd }: { pages: MekuriPage[]; onChapterEnd: () => void }) {
+      const reader = useMekuriEngine({
+        pages,
+        resolveSrc: (page, attempt) => `/api/pages/${String(page.id)}?attempt=${String(attempt)}`,
+        onPositionSample: (position) => {
+          localStorage.setItem("reading-position", JSON.stringify(position));
+        },
+        onBoundaryReached: (boundary) => {
+          if (boundary === "end") onChapterEnd();
+        },
+      });
+    
+      const page = pages[reader.state.pageIndex];
+      if (page === undefined) return <p>No pages loaded.</p>;
+      const request = reader.getPageRequest(page.id);
+    
+      return (
+        <div {...reader.getContainerProps()}>
+          <div {...reader.getViewportProps()}>
+            <img
+              src={request?.src}
+              alt={`Page ${String(reader.state.pageIndex + 1)}`}
+              onLoad={() => reader.reportPageLoaded(page.id)}
+              onError={() => reader.reportPageLoadFailed(page.id, "IMAGE_LOAD_FAILED", "load error")}
+            />
+          </div>
+        </div>
+      );
+    }
+    ```
+  </Step>
+  <Step title="Use the prebuilt views">
+    The prebuilt views render a vanilla engine store and stay replaceable. Create the engine once per page list, mount the default stylesheet, then swap the view based on the current reading mode.
+
+    ```tsx title="ReaderWithViews.tsx"
+    import { useMemo } from "react";
+    import { createMekuriEngine } from "@makinuki/mekuri/engine";
+    import type { MekuriPage } from "@makinuki/mekuri/engine";
+    import { MekuriViewStyles, PagedView, WebtoonView } from "@makinuki/mekuri/views";
+    
+    function Reader({ pages }: { pages: MekuriPage[] }) {
+      const engine = useMemo(
+        () =>
+          createMekuriEngine({
+            pages,
+            resolveSrc: (page) => String(page.metadata?.src ?? ""),
+          }),
+        [pages],
+      );
+      const mode = engine.getState().mode;
+      const continuous = mode === "continuous-webtoon" || mode === "continuous-vertical";
+    
+      return (
+        <div style={{ height: "100dvh" }}>
+          <MekuriViewStyles />
+          {continuous ? (
+            <WebtoonView engine={engine} pages={pages} gap={mode === "continuous-vertical" ? 8 : 0} />
+          ) : (
+            <PagedView engine={engine} pages={pages} />
+          )}
+        </div>
+      );
+    }
+    ```
+  </Step>
+</Steps>
+
+## Next steps
+
+<CardGroup>
+  <Card title="Host ownership" icon="shield" href="/mekuri/host-ownership">
+    Understand what Mekuri never does and which reader concerns the host owns.
+  </Card>
+
+  <Card title="State and modes" icon="toggle-left" href="/mekuri/engine/state-and-modes">
+    Learn about reading modes, directions, and how to control state.
+  </Card>
+
+  <Card title="Image pipeline" icon="image" href="/mekuri/engine/image-pipeline">
+    See how page loading, retry logic, and preload windows work.
+  </Card>
+
+  <Card title="Theming" icon="palette" href="/mekuri/views/theming">
+    Style the prebuilt views with CSS custom properties and data attributes.
+  </Card>
+</CardGroup>

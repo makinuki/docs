@@ -1,0 +1,47 @@
+---
+title: "MakiNuki PDK: TypeScript plugin development kit"
+sidebarTitle: "Introduction"
+description: "Compile TypeScript scrapers into WebAssembly plugins that implement the MakiNuki ABI. Author sources in TS, ship a single .wasm file."
+---
+
+The MakiNuki PDK (`@makinuki/pdk`) is a TypeScript development kit for authoring MakiNuki source plugins. Your scraper is bundled with esbuild, then compiled by `extism-js` into a single `.wasm` file that hosts load through the MakiNuki ABI defined in [`makinuki/spec`](https://github.com/makinuki/spec).
+
+## What ships in the box
+
+- The `makinuki-build` CLI that bundles a TypeScript entry, then invokes `extism-js` to produce a `.wasm` plugin.
+- Host wrappers for the MakiNuki host imports: `fetch`, `storageGet`, `storageSet`, `log`.
+- A `parseHTML` helper backed by `cheerio/slim` for HTML scraping inside the WASM sandbox.
+- Small URL and text utilities: `resolveUrl`, `cleanText`, `parseChapterNumber`.
+- TypeScript types for every payload the ABI defines.
+- `ok(data)` and `fail(code, message)` helpers that produce the `PluginResult` envelope.
+- A starter interface file at `template/index.d.ts` that declares the plugin exports and host imports.
+
+## Prerequisites
+
+- Node.js 20 or newer.
+- The `extism-js` compiler on your `PATH`. Install for your platform from [`extism/js-pdk`](https://github.com/extism/js-pdk/).
+- The binaryen `wasm-merge` and `wasm-opt` tools on your `PATH`. Install for your platform from [`WebAssembly/binaryen`](https://github.com/WebAssembly/binaryen/).
+
+<Note>
+  The package is CommonJS and its `main`/`types` point at `src/index.ts` directly. Consuming projects must use a TypeScript-aware toolchain (esbuild, `ts-node`, or TS 5.x+ with `allowImportingTsExtensions`).
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/pdk/quickstart">
+    Install prerequisites, scaffold your plugin, and produce your first `.wasm` file.
+  </Card>
+
+  <Card title="Plugin structure" icon="puzzle" href="/pdk/plugin-structure">
+    Required and optional ABI exports and the `PluginResult` envelope.
+  </Card>
+
+  <Card title="Host services" icon="globe" href="/pdk/host-services">
+    Call `fetch`, `storageGet`, `storageSet`, and `log` from your plugin.
+  </Card>
+
+  <Card title="Writing safe plugins" icon="shield-halved" href="/pdk/writing-safe-plugins">
+    Constraints for TypeScript scrapers running in the WASM sandbox.
+  </Card>
+</CardGroup>

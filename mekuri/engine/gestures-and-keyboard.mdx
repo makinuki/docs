@@ -1,0 +1,80 @@
+---
+title: "Gestures, tap zones, and keyboard bindings"
+sidebarTitle: "Gestures & Keyboard"
+description: "Configure tap zone presets, gesture handling, and keyboard shortcuts for navigating and zooming the Mekuri reader surface."
+---
+
+The Mekuri engine exposes configuration for tap zones and keyboard shortcuts, while the gesture and keyboard controllers attach those configurations to a DOM surface. You can inspect the active zone map and keyboard map at any time to render host previews or help dialogs.
+
+## Tap zones
+
+A `MekuriZoneMap` is a named collection of zones. Each zone has an `id`, an `action`, and normalized `bounds` in the range `[0, 1]`. Zones are evaluated in declaration order, and the first match wins.
+
+`MekuriZoneAction` values are:
+
+- `next` : advance one page or spread.
+- `prev` : go back one page or spread.
+- `toggleHUD` : toggle the reader HUD.
+- `none` : ignore the tap.
+
+The engine ships with five presets:
+
+| Preset | Behavior |
+| --- | --- |
+| `default-manga` | Left 30% goes back, center 40% toggles HUD, right 30% advances. |
+| `edge-only` | Only narrow edge bands on the left and right turn pages; the middle is free for host content. |
+| `l-shaped` | Side bands turn pages, top and bottom strips continue the same action, and the center toggles HUD. |
+| `disabled` | No zones; taps never navigate. |
+| `custom` | A host-defined zone array passed directly to the engine. |
+
+The active zone map appears in derived state as `activeZoneMap`. In RTL mode, the `next` and `prev` actions are swapped at dispatch time, so presets do not need RTL variants.
+
+## Keyboard
+
+`MekuriKeyboardMap` defines shortcuts as arrays of `KeyboardEvent.code` strings:
+
+```ts
+interface MekuriKeyboardMap {
+  nextPage: string[];
+  prevPage: string[];
+  toggleHUD: string[];
+  zoomIn: string[];
+  zoomOut: string[];
+  resetZoom: string[];
+}
+```
+
+Defaults are:
+
+- `nextPage`: `ArrowRight`, `KeyD`, `Space`
+- `prevPage`: `ArrowLeft`, `KeyA`
+- `toggleHUD`: `KeyM`, `Escape`
+- `zoomIn`: `Equal`, `NumpadAdd`
+- `zoomOut`: `Minus`, `NumpadSubtract`
+- `resetZoom`: `Digit0`, `Numpad0`
+
+You pass a partial override through the `keyboardMap` option, and the engine merges it over the defaults. In RTL mode, the page-turn pair is swapped at dispatch, so you do not need a separate RTL map. Engine methods `getKeyboardMap()` and `isKeyboardSuppressed()` let you read the live configuration at any time.
+
+Set `isKeyboardSuppressed: true` when a host modal, dialog, or text input owns the keyboard. While suppressed, no engine shortcuts are dispatched.
+
+## Custom configuration
+
+```ts
+import { customZoneMap } from "@makinuki/mekuri/engine";
+
+const engine = createMekuriEngine({
+  pages,
+  zoneMap: customZoneMap([
+    { id: "back", action: "prev", bounds: { x: 0, y: 0, width: 0.25, height: 1 } },
+    { id: "hud", action: "toggleHUD", bounds: { x: 0.25, y: 0, width: 0.5, height: 1 } },
+    { id: "forward", action: "next", bounds: { x: 0.75, y: 0, width: 0.25, height: 1 } },
+  ]),
+  keyboardMap: {
+    nextPage: ["ArrowRight", "KeyL"],
+    prevPage: ["ArrowLeft", "KeyH"],
+  },
+  isKeyboardSuppressed: false,
+});
+```
+
+The gesture controller attaches to a surface element and dispatches tap and swipe actions against the configured zone map. The keyboard controller attaches a `keydown` listener and dispatches against the merged keyboard map, respecting suppression and editable targets.

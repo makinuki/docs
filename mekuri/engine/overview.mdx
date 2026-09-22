@@ -1,0 +1,105 @@
+---
+title: "Mekuri engine: headless reader state and math"
+sidebarTitle: "Overview"
+description: "Learn how the Mekuri engine is structured as a framework-agnostic store, how hosts create or bind it, and which modules handle state, math, input, and images."
+---
+
+The Mekuri engine is a headless state store that owns reader math, navigation, and input dispatch. It never fetches images or touches the DOM outside the typed prop records it exposes, so it stays usable in test environments and under any renderer you choose.
+
+You can consume the engine in two ways:
+
+- `createMekuriEngine(options)` returns a vanilla store you can bind to any framework.
+- `useMekuriEngine(options)` is a thin React hook that reconciles controlled state during render and surfaces the store through `useSyncExternalStore`.
+
+Both paths share the same underlying modules and behavior.
+
+## Engine modules
+
+The engine is split into focused, DOM-free modules:
+
+| Module | Responsibility |
+| --- | --- |
+| `types` | Shared shapes: pages, spreads, zones, keyboard map, failure records, and the full state contract. |
+| `spreads` | Pure page-grouping math for double-page mode: cover isolation, landscape detection, and spread alignment. |
+| `scroll` | Scroll-offset to reading-position resolution, including fractional offsets inside a page. |
+| `scroll-lock` | Prevents host-page scroll while the reader owns the viewport. |
+| `props` | Typed `data-mekuri-*` attribute records for the container and viewport elements. |
+| `pipeline` | Attempt counting, retry scheduling, and the failure registry. The host resolves sources; the engine counts. |
+| `matrix` | Zoom transform math and pan clamping for the gesture layer. |
+| `zones` | Tap zone presets, hit-testing, and directional action swapping for RTL. |
+| `gestures` | Touch, pointer, tap, swipe, pan, and pinch controllers attached to a surface element. |
+| `keyboard` | Keydown dispatch from a `KeyboardEvent.code` map, with RTL inversion and suppression. |
+| `fullscreen` | Fullscreen request toggle, scoped to the reader container. |
+| `preload` | Bounded preload window around the current reading position, with an optional latency throttle. |
+| `wake-lock` | Screen wake lock while the reader is active. |
+| `store` | The vanilla engine implementation: state, subscriptions, actions, and snapshot caching. |
+| `useMekuriEngine` | React binding over the vanilla store. |
+
+<Note>
+  The store and math modules never import React or reference DOM globals at module scope. That makes them safe to import in Node, jsdom, or any non-browser environment.
+</Note>
+
+## Create a vanilla engine
+
+```ts
+import { createMekuriEngine } from "@makinuki/mekuri/engine";
+
+const engine = createMekuriEngine({
+  pages: [
+    { id: 1, width: 1200, height: 1800 },
+    { id: 2, width: 1200, height: 1800 },
+  ],
+  initialState: { mode: "single", direction: "ltr" },
+  onPositionSample: (pos) => savePosition(pos),
+});
+
+const state = engine.getState();
+engine.next();
+engine.prev();
+```
+
+The returned `MekuriEngine` gives you imperative methods such as `next`, `prev`, `goToIndex`, `setMode`, and `setZoomScale`, plus a `subscribe` listener for reactive updates.
+
+## React binding
+
+```tsx
+import { useMekuriEngine } from "@makinuki/mekuri/engine";
+
+function Reader({ pages }) {
+  const { state, next, prev, getContainerProps, getViewportProps } =
+    useMekuriEngine({
+      pages,
+      initialState: { mode: "single", direction: "ltr" },
+    });
+
+  return (
+    <div {...getContainerProps()}>
+      <div {...getViewportProps()}>
+        {/* your view layer */}
+      </div>
+    </div>
+  );
+}
+```
+
+The hook forwards every store method and exposes the current `MekuriState` reactively.
+
+## Explore the engine
+
+<CardGroup>
+  <Card title="State and modes" href="/mekuri/engine/state-and-modes">
+    Controlled and uncontrolled state, reading modes, direction, and zoom.
+  </Card>
+
+  <Card title="Image pipeline" href="/mekuri/engine/image-pipeline">
+    Resolve sources, retries, failure codes, and preload windows.
+  </Card>
+
+  <Card title="Gestures and keyboard" href="/mekuri/engine/gestures-and-keyboard">
+    Tap zones, presets, swipe handling, and keyboard shortcuts.
+  </Card>
+
+  <Card title="Spreads and scroll" href="/mekuri/engine/spreads-and-scroll">
+    Spread math, scroll position resolution, and boundary detection.
+  </Card>
+</CardGroup>

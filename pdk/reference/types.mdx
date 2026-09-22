@@ -1,0 +1,207 @@
+---
+title: "Type reference: metadata, filters, and payload shapes"
+sidebarTitle: "Types"
+description: "TypeScript type reference for MakiNuki plugin metadata, filter schema, search queries, manga details, pages, and HTTP payloads."
+---
+
+This page is the reference for every TypeScript type the PDK exposes. Every shape mirrors what the MakiNuki ABI expects on the wire; the source of truth lives in `src/types.ts` of `@makinuki/pdk`.
+
+## SourceMetadata
+
+Returned by `get_metadata` as raw JSON.
+
+```typescript
+interface SourceMetadata {
+  id: string;
+  name: string;
+  version: string;
+  abiVersion: number;
+  lang: string;
+  baseUrl: string;
+  iconUrl: string;
+  nsfw: boolean;
+  allowedHosts?: string[];
+}
+```
+
+## Filters
+
+Returned by `get_filters` as raw JSON (`FilterSchema[]`).
+
+```ts
+type FilterSchema = SelectFilter | TriStateFilter | CheckboxFilter | TextFilter;
+
+interface BaseFilter {
+  id: string;
+  title: string;
+}
+
+interface SelectFilter extends BaseFilter {
+  type: "select";
+  options: Array<{ label: string; value: string }>;
+  default: string;
+}
+
+interface TriStateFilter extends BaseFilter {
+  type: "tri_state";
+  options: Array<{ label: string; value: string }>;
+  default?: Record<string, "+" | "-">;
+}
+
+interface CheckboxFilter extends BaseFilter {
+  type: "checkbox";
+  default: boolean;
+}
+
+interface TextFilter extends BaseFilter {
+  type: "text";
+  placeholder?: string;
+  default?: string;
+}
+```
+
+## SearchQuery
+
+Input for `search`.
+
+```ts
+interface SearchQuery {
+  query: string;
+  page: number;
+  filters?: Record<string, unknown>;
+}
+```
+
+## PageResult
+
+Envelope for any paginated list.
+
+```ts
+interface PageResult<T> {
+  page: number;
+  hasNextPage: boolean;
+  items: T[];
+}
+```
+
+## MangaItem and CoverVariant
+
+Items returned by `search`.
+
+```ts
+interface MangaItem {
+  id: string;
+  title: string;
+  coverUrl?: string;
+  latestChapter?: string;
+  url?: string;
+  covers?: CoverVariant[];
+}
+
+interface CoverVariant {
+  url: string;
+  width?: number;
+  height?: number;
+}
+```
+
+## MangaDetails
+
+Returned by `get_details`.
+
+```ts
+interface MangaDetails {
+  id: string;
+  title: string;
+  altTitles?: string[];
+  description?: string;
+  authors?: string[];
+  artists?: string[];
+  genres?: string[];
+  status: "Ongoing" | "Completed" | "Hiatus" | "Cancelled" | "Unknown";
+  coverUrl?: string;
+  chapters: ChapterItem[];
+  covers?: CoverVariant[];
+}
+```
+
+## ChapterItem
+
+```ts
+interface ChapterItem {
+  id: string;
+  number: number | null;
+  volume?: number;
+  language?: string;
+  title?: string;
+  uploadedAt?: number;
+  scanlator?: string;
+  url?: string;
+}
+```
+
+## PageItem and ScrambleInfo
+
+Returned by `get_pages`.
+
+```ts
+interface PageItem {
+  index: number;
+  url: string;
+  headers?: Record<string, string>;
+  isScrambled: boolean;
+  metadata?: ScrambleInfo;
+}
+
+interface ScrambleInfo {
+  layout: "slice" | "shift" | "custom";
+  rows: number;
+  cols: number;
+  tileW: number;
+  tileH: number;
+  order: number[];
+}
+```
+
+When `isScrambled` is `true`, the host calls `unscramble_image` with the raw bytes and `ScrambleInfo` to reconstruct the page.
+
+## HTTP payloads
+
+Shapes used by `fetch` and `MakiNukiHttpError`.
+
+```ts
+interface HttpRequest {
+  url: string;
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string | null;
+}
+
+interface HttpResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+}
+
+interface HttpError {
+  error: string;
+  status?: number;
+  url?: string;
+  message?: string;
+}
+```
+
+## PluginResult and helpers
+
+Envelope wrapping every dynamic response.
+
+```ts
+type PluginResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: ErrorCode; message: string } };
+
+function ok<T>(data: T): PluginResult<T>;
+function fail<T = never>(code: ErrorCode, message: string): PluginResult<T>;
+```
+
+See [error codes](/pdk/reference/errors) for the `ErrorCode` union.

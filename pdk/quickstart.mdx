@@ -1,0 +1,122 @@
+---
+title: "Quickstart: build your first MakiNuki plugin"
+sidebarTitle: "Quickstart"
+description: "Install the PDK, copy the interface template, write a plugin entry, and compile it into a WebAssembly plugin with makinuki-build."
+---
+
+This quickstart walks through building a minimal MakiNuki plugin in TypeScript and producing a `.wasm` file with the `makinuki-build` CLI.
+
+<Steps>
+  <Step title="Install the toolchain prerequisites">
+    Make sure Node.js 20 or newer is installed. Then install `extism-js` and the binaryen tools for your platform, and confirm they resolve on your `PATH`:
+
+    ```sh
+    extism-js --version
+    wasm-opt --version
+    wasm-merge --version
+    ```
+
+    Downloads:
+
+    - `extism-js` from [`extism/js-pdk`](https://github.com/extism/js-pdk/) releases.
+    - `wasm-opt` and `wasm-merge` from [`WebAssembly/binaryen`](https://github.com/WebAssembly/binaryen/) releases.
+  </Step>
+  <Step title="Install the PDK">
+    Add the PDK and the build CLI to your plugin project:
+
+    <CodeGroup>
+
+    ```sh pnpm
+    pnpm add -D @makinuki/pdk
+    ```
+
+    ```sh npm
+    npm install --save-dev @makinuki/pdk
+    ```
+
+    ```sh yarn
+    yarn add -D @makinuki/pdk
+    ```
+
+    </CodeGroup>
+
+    The `makinuki-build` bin is provided by `@makinuki/pdk`, so no separate install is required.
+  </Step>
+  <Step title="Copy the interface file">
+    Copy `template/index.d.ts` from `@makinuki/pdk` into your project, for example at `src/index.d.ts`. This file declares the plugin exports the WASM module must expose (`get_metadata`, `get_filters`, `search`, `get_details`, `get_pages`, and the optional `unscramble_image`) and the `extism:host` import module for MakiNuki host services.
+
+    <Tip>
+      Keep the interface file next to your entry point. The build CLI defaults to reading it from `src/index.d.ts`.
+    </Tip>
+  </Step>
+  <Step title="Write your plugin entry">
+    Create `src/index.ts` with the required exports. The pattern for every dynamic export is: read input with `Host.inputString()`, produce a `PluginResult<T>` with `ok()` or `fail()`, and write output with `Host.outputString(JSON.stringify(...))`.
+
+    ```ts src/index.ts
+    /// <reference path="./index.d.ts" />
+    import { ok, fail, fetch, parseHTML, cleanText, type SourceMetadata } from "@makinuki/pdk";
+    
+    export function get_metadata(): number {
+      const metadata: SourceMetadata = {
+        id: "example",
+        name: "Example",
+        version: "0.1.0",
+        abiVersion: 1,
+        lang: "en",
+        baseUrl: "https://example.com",
+        iconUrl: "https://example.com/icon.png",
+        nsfw: false,
+      };
+      Host.outputString(JSON.stringify(metadata));
+      return 0;
+    }
+    
+    export function search(): number {
+      const query = JSON.parse(Host.inputString());
+      try {
+        const res = fetch({ url: `https://example.com/search?q=${encodeURIComponent(query.query)}` });
+        const $ = parseHTML(res.body);
+        const items = $(".result").map((_, el) => ({
+          id: $(el).attr("data-id") ?? "",
+          title: cleanText($(el).find(".title").text()),
+        })).get();
+        Host.outputString(JSON.stringify(ok({ page: query.page, hasNextPage: false, items })));
+      } catch (err) {
+        Host.outputString(JSON.stringify(fail("PARSING_ERROR", String(err))));
+      }
+      return 0;
+    }
+    
+    // ...implement get_filters, get_details, get_pages the same way.
+    ```
+  </Step>
+  <Step title="Build the plugin">
+    Compile your entry into a WebAssembly plugin:
+
+    ```sh
+    npx makinuki-build src/index.ts -i src/index.d.ts -o dist/plugin.wasm
+    ```
+
+    The CLI bundles your TypeScript with esbuild, then hands the bundle to `extism-js`. The result is a single `dist/plugin.wasm` file that a MakiNuki host can load.
+  </Step>
+</Steps>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Plugin structure" icon="puzzle" href="/pdk/plugin-structure">
+    Which exports are required, and how the `PluginResult` envelope works.
+  </Card>
+
+  <Card title="Host services" icon="globe" href="/pdk/host-services">
+    Call `fetch`, `storageGet`, `storageSet`, and `log` from inside the plugin.
+  </Card>
+
+  <Card title="Writing safe plugins" icon="shield-halved" href="/pdk/writing-safe-plugins">
+    Sandbox constraints and dependency rules.
+  </Card>
+
+  <Card title="Build CLI" icon="terminal" href="/pdk/build-cli">
+    Full reference for `makinuki-build` options and defaults.
+  </Card>
+</CardGroup>

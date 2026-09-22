@@ -1,0 +1,35 @@
+---
+title: "Mekuri: headless manga and webtoon reader engine"
+sidebarTitle: "Introduction"
+description: "Mekuri is a headless-first reader engine for manga and webtoons. It ships as three surfaces: engine, views, and test-utils."
+---
+
+Mekuri is a headless-first reader engine and view library for manga, comics, and webtoons on the web. It lets you build custom readers without fighting opinionated markup, while still offering optional prebuilt views when you want to ship fast.
+
+The library is split into three surfaces:
+
+- **`engine`**: headless state machine, pure page math, keyboard and tap-zone registries, gesture state, and virtualization math. No DOM and no CSS.
+- **`views`**: optional unstyled, themeable view implementations and HUD primitives driven by CSS custom properties.
+- **`test-utils`**: gesture simulators, viewport mocks, and observer mocks for testing host integrations under JSDOM.
+
+Mekuri is currently pre-release. It requires React and React DOM 18.2 or 19 as peer dependencies. The only runtime dependency is `@tanstack/react-virtual`, and only the continuous views load it.
+
+## Choose your next step
+
+<CardGroup>
+  <Card title="Quickstart" icon="rocket" href="/mekuri/quickstart">
+    Hook up the engine to your own markup or drop in the prebuilt views in minutes.
+  </Card>
+
+  <Card title="Engine overview" icon="cpu" href="/mekuri/engine/overview">
+    Learn how the engine manages state, modes, gestures, and the image pipeline.
+  </Card>
+
+  <Card title="Views overview" icon="layout" href="/mekuri/views/overview">
+    Explore the prebuilt views and HUD primitives you can theme with CSS.
+  </Card>
+
+  <Card title="Host ownership" icon="shield" href="/mekuri/host-ownership">
+    Understand what Mekuri never does and which reader concerns the host owns.
+  </Card>
+</CardGroup>

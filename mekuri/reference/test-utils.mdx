@@ -1,0 +1,205 @@
+---
+title: "Test utilities for host reader integrations"
+sidebarTitle: "Test Utils"
+description: "gesture simulators, viewport mocks, and observer mocks for testing host integrations under jsdom"
+---
+
+The `@makinuki/mekuri/test-utils` subpackage provides doubles and simulators for testing Mekuri host integrations in jsdom, where layout engines and platform observers are unavailable.
+
+## Installation
+
+These utilities ship with the main package. Import them directly:
+
+```ts
+import { mockScrollGeometry, mockResizeObserver, simulateTouchGesture, mockRetryScheduler } from "@makinuki/mekuri/test-utils";
+```
+
+## Viewport helpers
+
+jsdom reports zero for all element rects and client metrics, which collapses the virtualizer range in continuous views. These helpers let you define geometry explicitly and restore the original behavior afterward.
+
+### `mockViewportDimensions`
+
+Mocks layout dimensions for a single element: `getBoundingClientRect`, `offsetWidth`, `offsetHeight`, `clientWidth`, and `clientHeight`.
+
+```ts
+import { mockViewportDimensions } from "@makinuki/mekuri/test-utils";
+
+const restore = mockViewportDimensions(element, { width: 400, height: 800 });
+// ...test code...
+restore();
+```
+
+### `mockScrollGeometry`
+
+Mocks the geometry of a continuous scroll surface. The element carrying `data-mekuri-viewport` reads `viewportHeight`; every other element reads `pageHeight`. Patches sit on `HTMLElement.prototype`, so elements created after the call are covered.
+
+```ts
+import { mockScrollGeometry } from "@makinuki/mekuri/test-utils";
+
+const restore = mockScrollGeometry({
+  viewportHeight: 600,
+  pageHeight: 800,
+  width: 400,
+});
+// ...test code...
+restore();
+```
+
+## Observer mocks
+
+The continuous view and virtualizer rely on `ResizeObserver` and `IntersectionObserver`, which jsdom does not implement. These doubles install hand-driven classes on `window` and fire entries only when a test asks for them.
+
+### `mockResizeObserver`
+
+Installs a hand-driven `ResizeObserver` double. Instances record what their consumer observes; entries fire only when a test drives them.
+
+```ts
+import { mockResizeObserver } from "@makinuki/mekuri/test-utils";
+
+const handle = mockResizeObserver();
+// mount your component
+const observer = handle.latest();
+observer.fire(pageNode, 800, 400);
+handle.restore();
+```
+
+<Expandable title="MockResizeObserver API">
+  - `observed: Element[]` — elements being watched by this instance
+  - `disconnected: boolean` — whether `disconnect()` was called
+  - `observe(target)` — adds an element to the watch list
+  - `unobserve(target)` — removes an element from the watch list
+  - `disconnect()` — clears the watch list
+  - `fire(target, height, width?)` — fires one entry for an observed node
+  - `fireAll(heights, width?)` — fires one entry per observed node
+</Expandable>
+
+The returned handle also provides:
+
+| Property / Method | Description |
+| --- | --- |
+| `instances` | Every `MockResizeObserver` constructed since install |
+| `latest()` | The most recently constructed instance |
+| `fire(target, height, width?)` | Fires one entry for the node on every instance that observes it |
+| `fireAll(heights, width?)` | Fires one entry per observed node on every instance |
+| `restore()` | Removes the double from `window` |
+
+### `mockIntersectionObserver`
+
+Installs a hand-driven `IntersectionObserver` double with the full consumer surface.
+
+```ts
+import { mockIntersectionObserver } from "@makinuki/mekuri/test-utils";
+
+const handle = mockIntersectionObserver();
+const observer = handle.latest();
+observer.intersect(pageNode, true);
+handle.restore();
+```
+
+<Expandable title="MockIntersectionObserver API">
+  - `observed: Element[]` — elements being watched by this instance
+  - `disconnected: boolean` — whether `disconnect()` was called
+  - `root` — root element or document from init options
+  - `rootMargin` — margin string from init options
+  - `thresholds` — threshold array from init options
+  - `observe(target)` — adds an element to the watch list
+  - `unobserve(target)` — removes an element from the watch list
+  - `disconnect()` — clears the watch list and pending records
+  - `takeRecords()` — returns and clears pending entries
+  - `intersect(target, isIntersecting?)` — fires one intersection entry
+</Expandable>
+
+The returned handle also provides:
+
+| Property / Method | Description |
+| --- | --- |
+| `instances` | Every `MockIntersectionObserver` constructed since install |
+| `latest()` | The most recently constructed instance |
+| `intersect(target, isIntersecting?)` | Fires one intersection entry on the latest instance |
+| `restore()` | Removes the double from `window` |
+
+## Gesture simulators
+
+jsdom implements `TouchEvent` but lacks a `Touch` constructor. These simulators build touch sequences matching what the platform dispatches, including the synthetic click that follows a touch sequence.
+
+### `simulateTouchGesture`
+
+Dispatches one gesture on an element and waits for it to settle.
+
+```ts
+import { simulateTouchGesture } from "@makinuki/mekuri/test-utils";
+
+// Tap
+await simulateTouchGesture(element, { type: "tap", at: { x: 100, y: 200 } });
+
+// Double tap
+await simulateTouchGesture(element, {
+  type: "doubleTap",
+  at: { x: 100, y: 200 },
+  gapMs: 200,
+});
+
+// Pan / swipe
+await simulateTouchGesture(element, {
+  type: "pan",
+  from: { x: 100, y: 200 },
+  to: { x: 300, y: 200 },
+  steps: 6,
+});
+
+// Pinch
+await simulateTouchGesture(element, {
+  type: "pinch",
+  center: { x: 200, y: 300 },
+  from: 100,
+  to: 50,
+  steps: 4,
+});
+```
+
+All gesture types accept these shared options:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `steps` | `4` | Steps a drag or pinch is dispatched in |
+| `clickAfter` | `true` | Emit the synthetic click that follows a touch sequence |
+
+## Retry helpers
+
+The engine takes its retry scheduler as an option, so tests can inject a double that captures scheduled callbacks and runs them manually.
+
+### `mockRetryScheduler`
+
+Creates a scheduler double with full visibility into scheduled retries.
+
+```ts
+import { mockRetryScheduler } from "@makinuki/mekuri/test-utils";
+
+const scheduler = mockRetryScheduler();
+
+const engine = createMekuriEngine({
+  pages,
+  scheduleRetry: scheduler.schedule,
+});
+
+// trigger a failure...
+scheduler.next().run(); // runs the first pending retry
+scheduler.runAll(); // runs every pending entry
+```
+
+<Expandable title="MockRetryScheduler API">
+  - `scheduled: MockScheduledRetry[]` — every entry ever scheduled, consumed ones included
+  - `schedule(callback, delayMs)` — scheduler to pass to the engine
+  - `pending()` — entries neither run nor cancelled, in schedule order
+  - `next()` — first pending entry; throws when nothing is pending
+  - `runAll()` — runs every pending entry at call time, in order
+</Expandable>
+
+Each `MockScheduledRetry` entry exposes:
+
+| Property | Description |
+| --- | --- |
+| `delayMs` | Delay the engine asked for, in milliseconds |
+| `cancelled` | `true` once the entry ran or its canceller was called |
+| `run()` | Runs the callback and consumes the entry |

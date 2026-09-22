@@ -1,0 +1,80 @@
+---
+title: "Spreads, page math, and scroll position"
+sidebarTitle: "Spreads & Scroll"
+description: "Use pure page math for double-page spreads and scroll-based reading positions, even outside a mounted view."
+---
+
+The Mekuri engine exposes pure, framework-agnostic helpers for spread grouping and scroll position resolution. You can use them in tests, in server-side math, or in custom view layers without importing React.
+
+## Spread config
+
+`MekuriSpreadConfig` controls how pages are grouped into spreads in `double` mode:
+
+```ts
+interface MekuriSpreadConfig {
+  firstPageIsCover: boolean;
+  landscapeThreshold: number;
+}
+```
+
+When `firstPageIsCover` is `true`, the first page renders alone and pairing starts at page 2. Pages with a known aspect ratio strictly above `landscapeThreshold` are isolated onto their own spread. The default is:
+
+```ts
+const DEFAULT_SPREAD_CONFIG = { firstPageIsCover: true, landscapeThreshold: 1.2 };
+```
+
+## Pure helpers
+
+Import these directly from `@makinuki/mekuri/engine`:
+
+- `calculateSpreads(pages, config)` : groups page indices into spreads using cover and landscape rules. Returns an array of index arrays.
+- `alignToSpread(pageIndex, spreads)` : clamps an arbitrary page index to the start index of its parent spread. Uses binary search over spread starts.
+- `identitySpreads(pageCount)` : one page per spread. Used by single-page and continuous modes.
+- `pageAspectRatio(page)` : returns the aspect ratio from explicit pixel dimensions or the `aspectRatio` field, or `null` when neither is available.
+- `isLandscapePage(page, config)` : returns `true` when the page aspect ratio exceeds the configured threshold.
+
+## Scroll position
+
+Continuous modes report scroll offsets instead of discrete page indices. The engine resolves the dominant page from `reportScroll`:
+
+```ts
+engine.reportScroll(scrollOffset, pageOffsets);
+```
+
+`pageOffsets` is an array of `MekuriPageOffset` objects that describe each page's layout box:
+
+```ts
+interface MekuriPageOffset {
+  index: number;
+  top: number;
+  bottom: number;
+}
+```
+
+The engine uses `resolvePageFromScrollOffset(scrollOffset, pageOffsets)` to determine the current `pageIndex` and `relativeOffset`, a fraction clamped to `[0, 1]`. Read the authoritative position with:
+
+```ts
+const position = engine.getReadingPosition();
+// { pageIndex: number, relativeOffset: number }
+```
+
+Position samples are emitted in two situations:
+
+1. Immediately on a discrete page change (either from `next`/`prev`/`goToIndex`, or from scroll crossing into a new page).
+2. Throttled during same-page scrolling to `positionSampleInterval`, which defaults to `1000` ms. Sampling is best-effort: samples may be dropped under heavy throttling.
+
+## Boundaries
+
+When the reader reaches the first or last page (or spread) and the user attempts to navigate further, the engine fires `onBoundaryReached`:
+
+```ts
+const engine = createMekuriEngine({
+  pages,
+  onBoundaryReached: (boundary) => {
+    if (boundary === "start") showPreviousChapterButton();
+    if (boundary === "end") showNextChapterButton();
+  },
+});
+```
+
+`ChapterBoundary` is `"start"` or `"end"`. This is where your host owns chapter navigation: the engine never fetches the next chapter or persists position itself.

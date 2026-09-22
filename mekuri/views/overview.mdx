@@ -1,0 +1,106 @@
+---
+title: "Prebuilt views: paged, webtoon, and continuous"
+sidebarTitle: "Overview"
+description: "optional unstyled themeable view implementations mounted from a vanilla Mekuri engine store"
+---
+
+The views subpackage provides ready-to-use React surfaces that mount a Mekuri engine and render its state. These are optional: you can replace any view with your own markup while keeping the engine and its state management unchanged.
+
+Import the views from `@makinuki/mekuri/views`.
+
+## Available surfaces
+
+### `PagedView`
+
+Renders single-page and double-page spreads. It resolves the current spread from the engine, applies the reading direction with the `dir` attribute, and wires in the gesture layer for pan and zoom, plus the keyboard dispatcher. Pages carry their pipeline state in a `data-mekuri-src-state` attribute with values of `ready`, `pending`, or `failed`.
+
+<CardGroup cols={2}>
+  <Card title="Supported modes" icon="book-open">
+    `single`, `double`
+  </Card>
+
+  <Card title="Gestures" icon="hand-pointer">
+    Pointer and keyboard layers included by default
+  </Card>
+</CardGroup>
+
+### `WebtoonView`
+
+Renders a continuous vertical column with a HUD, boundary mount point, and keyboard layer. Pointer gestures are not attached because continuous modes keep native vertical scrolling; if you want pinch zoom over a continuous column, attach the gesture layer yourself with a transform target you own.
+
+<CardGroup cols={2}>
+  <Card title="Supported modes" icon="book-open">
+    `continuous-vertical`, `continuous-webtoon`
+  </Card>
+
+  <Card title="Virtualization" icon="layer-group">
+    Built on `@tanstack/react-virtual`
+  </Card>
+</CardGroup>
+
+### `ContinuousView`
+
+The underlying virtualized column used by `WebtoonView`. It owns scroll alignment and reconciles the engine reading position with the scrolled column. You can use it directly if you want to build your own chrome around the continuous surface.
+
+## Shared props
+
+`PagedView` and `WebtoonView` accept these common props:
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `engine` | `MekuriEngine` | Engine store to mount |
+| `pages` | `MekuriPage[]` | Pages to render |
+| `renderPage` | `(page, index) => ReactNode` | Custom page renderer. Defaults to the source image |
+| `altLabeler` | `(page, index) => string` | Accessible page description. Defaults to `"Page {index + 1}"` |
+| `formatStatus` | `(label, index, total) => string` | Formats the HUD status announcement |
+| `hud` | `boolean` | Renders the default HUD. Defaults to `true` |
+| `boundarySlot` | `ReactNode` | Rendered over the surface while the reader holds at a chapter boundary |
+| `showZoneOverlay` | `boolean` | Draws the active zone geometry for host configuration previews. Defaults to `false` |
+| `className` | `string` | Passed to the root element |
+| `style` | `CSSProperties` | Passed to the root element |
+| `gestureOptions` | `MekuriSurfaceOptions["gestureOptions"]` | Passed to the gesture layer (PagedView only) |
+| `keyboardOptions` | `MekuriSurfaceOptions["keyboardOptions"]` | Passed to the keyboard layer (PagedView only) |
+
+`WebtoonView` also accepts:
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `maxWidth` | `number \| string` | Width cap for the reading column |
+| `gap` | `number` | Vertical gap in pixels. Forced to `0` in webtoon mode |
+| `overscan` | `number` | Items rendered above and below the visible range. Defaults to `4` |
+| `estimateSize` | `number` | Estimated page height before first measurement |
+
+## HUD primitives
+
+The views package exposes several unstyled HUD primitives you can compose into custom chrome:
+
+- `MekuriHUD`: the full control bar with prev/next, zoom controls, and a status region
+- `MekuriHudButton`: a 44 by 44 pixel minimum touch target with a `data-mekuri-control` identifier
+- `MekuriZoneOverlay`: an inspectable zone map drawn over the reading surface
+- `MekuriPageStatus`: a polite live region that announces the current reading position
+
+## Utility hooks
+
+| Hook | Description |
+| --- | --- |
+| `useEngineState(engine)` | Subscribes to engine state changes with `useSyncExternalStore` |
+| `useMekuriSurface(options)` | Attaches the gesture and keyboard layers to a surface ref |
+
+## Quick example
+
+Mount the default stylesheet once above your reader, then render a `WebtoonView` or `PagedView`:
+
+```tsx
+import { MekuriViewStyles, WebtoonView } from "@makinuki/mekuri/views";
+
+function Reader({ engine, pages }) {
+  return (
+    <>
+      <MekuriViewStyles />
+      <WebtoonView engine={engine} pages={pages} />
+    </>
+  );
+}
+```
+
+The `MekuriViewStyles` component injects the default stylesheet as a `<style>` tag. You can omit it and write your own CSS using the same `data-mekuri-*` attributes and CSS custom properties. See [theming](/mekuri/views/theming) for the full set of tokens.

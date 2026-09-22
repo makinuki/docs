@@ -1,0 +1,85 @@
+---
+title: "Error codes returned by MakiNuki plugin responses"
+sidebarTitle: "Errors"
+description: "The machine-readable ErrorCode union hosts match on when a MakiNuki plugin returns a failed PluginResult, plus the MakiNukiHttpError class."
+---
+
+MakiNuki plugins signal failures through a stable, machine-readable `ErrorCode`. Hosts match on the code to decide whether to retry, prompt the user, or escalate.
+
+## ErrorCode
+
+```ts
+type ErrorCode =
+  | "CLOUDFLARE_BLOCKED"
+  | "RATE_LIMITED"
+  | "NETWORK_TIMEOUT"
+  | "SESSION_REQUIRED"
+  | "AUTH_EXPIRED"
+  | "NOT_FOUND"
+  | "SOURCE_OFFLINE"
+  | "PARSING_ERROR"
+  | "UNSUPPORTED_MEDIA"
+  | "MEMORY_LIMIT_EXCEEDED"
+  | "UNSCRAMBLE_FAILED";
+```
+
+| Code | When to return it |
+| --- | --- |
+| `CLOUDFLARE_BLOCKED` | Upstream served a Cloudflare interstitial or captcha. |
+| `RATE_LIMITED` | The source responded with a rate limit (HTTP 429 or vendor-specific). |
+| `NETWORK_TIMEOUT` | The request timed out or the connection dropped. |
+| `SESSION_REQUIRED` | The endpoint requires a signed-in session and none is available. |
+| `AUTH_EXPIRED` | Credentials or tokens were rejected and need refresh. |
+| `NOT_FOUND` | The requested resource does not exist upstream. |
+| `SOURCE_OFFLINE` | The source is unreachable or returned a 5xx error. |
+| `PARSING_ERROR` | The response was reachable but could not be parsed into the expected shape. |
+| `UNSUPPORTED_MEDIA` | A page format the plugin does not know how to handle. |
+| `MEMORY_LIMIT_EXCEEDED` | The plugin exceeded the sandbox's memory budget. |
+| `UNSCRAMBLE_FAILED` | `unscramble_image` could not reconstruct the page. |
+
+Use the helper to build a failed envelope:
+
+```ts
+import { fail } from "@makinuki/pdk";
+
+return fail("RATE_LIMITED", "429 from search endpoint, retry after 30s");
+```
+
+## MakiNukiHttpError
+
+`fetch` throws `MakiNukiHttpError` when the host returns an error payload rather than an HTTP response. The class derives from `Error` and exposes the fields on the host `HttpError` payload:
+
+<ParamField path="code" type="string">
+  The `error` field returned by the host. Often matches one of the `ErrorCode` values, but is not restricted to them.
+</ParamField>
+
+<ParamField path="status" type="number | undefined">
+  HTTP status code when the failure occurred at the response stage, otherwise `undefined`.
+</ParamField>
+
+<ParamField path="url" type="string | undefined">
+  Request URL, when available.
+</ParamField>
+
+<ParamField path="message" type="string">
+  Human-readable detail, inherited from `Error`. Set to the payload's `message`, or `error` when `message` is absent.
+</ParamField>
+
+```ts Catching host errors
+import { fetch, fail, MakiNukiHttpError } from "@makinuki/pdk";
+
+try {
+  const res = fetch({ url });
+  Host.outputString(JSON.stringify(/* ok(...) */));
+} catch (err) {
+  if (err instanceof MakiNukiHttpError) {
+    if (err.code === "CLOUDFLARE_BLOCKED" || err.status === 403) {
+      Host.outputString(JSON.stringify(fail("CLOUDFLARE_BLOCKED", err.message)));
+      return 0;
+    }
+    Host.outputString(JSON.stringify(fail("NETWORK_TIMEOUT", err.message)));
+    return 0;
+  }
+  throw err;
+}
+```

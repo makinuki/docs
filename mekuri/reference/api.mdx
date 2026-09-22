@@ -1,0 +1,269 @@
+---
+title: "Mekuri API reference: engine options and methods"
+sidebarTitle: "API Reference"
+description: "full reference for useMekuriEngine, createMekuriEngine, and the engine output methods"
+---
+
+This page documents the complete surface of the Mekuri engine: the options you pass to `createMekuriEngine` or `useMekuriEngine`, and every method on the engine instance. All types are importable from `@makinuki/mekuri/engine`.
+
+## Options (`MekuriEngineOptions`)
+
+<ParamField path="pages" type="MekuriPage[]" required>
+  Array of pages for the current chapter. Each page must have a unique `id`.
+</ParamField>
+
+<ParamField path="state" type="MekuriControlledState">
+  When provided, the engine runs in controlled mode and the host owns the fields inside this state. The engine reports changes through `onStateChange` and reconciles with `syncControlled`.
+</ParamField>
+
+<ParamField path="onStateChange" type="(patch: Partial<MekuriControlledState>) => void">
+  Fired when a controlled field changes due to an engine action. The host should merge this patch into its state and re-render.
+</ParamField>
+
+<ParamField path="initialState" type="Partial<MekuriControlledState>">
+  Uncontrolled mode seed. Fields include `pageIndex`, `mode`, `direction`, `zoomScale`, and `spreadConfig`.
+</ParamField>
+
+<ParamField path="onPositionSample" type="(position: MekuriReadingPosition) => void">
+  Fired on discrete page changes, and throttled to `positionSampleInterval` during same-page scrolling.
+</ParamField>
+
+<ParamField path="positionSampleInterval" default="1000" type="number">
+  Minimum milliseconds between throttled position samples.
+</ParamField>
+
+<ParamField path="onBoundaryReached" type="(boundary: ChapterBoundary) => void">
+  Called when the reader reaches the first or last page of the chapter. The boundary value is `"start"` or `"end"`.
+</ParamField>
+
+<ParamField path="resolveSrc" type="(page, attempt, constraints?) => string | Promise<string>">
+  Host image pipeline hook. The engine never fetches images itself; this resolver receives the page metadata, attempt counter, and optional decode constraints and returns the display source.
+</ParamField>
+
+<ParamField path="maxAutoRetries" default="2" type="number">
+  Auto-retries after a failure before escalation. A page that never loads is resolved at most `maxAutoRetries + 1` times.
+</ParamField>
+
+<ParamField path="maxDecodeDimensions" type="MekuriDecodeConstraints">
+  Decode constraints passed through to `resolveSrc` when configured.
+</ParamField>
+
+<ParamField path="retryDelayMs" default="400" type="number">
+  Base delay of the exponential retry backoff.
+</ParamField>
+
+<ParamField path="scheduleRetry" type="(callback, delayMs) => () => void">
+  Scheduler used for automatic retries. Defaults to `setTimeout`. Replace it in tests to avoid waiting on real timers.
+</ParamField>
+
+<ParamField path="zoneMap" type="MekuriZoneMap">
+  Tap zone map the gesture layer dispatches from. Defaults to the `default-manga` preset.
+</ParamField>
+
+<ParamField path="maxZoomScale" default="4" type="number">
+  Upper bound of the zoom range. A value of `1` disables zooming entirely.
+</ParamField>
+
+<ParamField path="zoomStep" default="1.5" type="number">
+  Multiplier applied by one zoom step.
+</ParamField>
+
+<ParamField path="keyboardMap" type="Partial<MekuriKeyboardMap>">
+  Keyboard bindings merged over the defaults. See [gestures and keyboard](/mekuri/engine/gestures-and-keyboard) for the default map.
+</ParamField>
+
+<ParamField path="isKeyboardSuppressed" type="boolean">
+  When `true`, no keyboard shortcuts are dispatched. Use this while modals, dialogs, or text inputs are focused.
+</ParamField>
+
+<ParamField path="preloadBuffer" default="{ forward: 3, backward: 1 }" type="MekuriPreloadBuffer">
+  Bounded page indices to warm around the reading position.
+</ParamField>
+
+<ParamField path="now" type="() => number">
+  Monotonic clock for sample throttling. Defaults to `Date.now`. Replace it for deterministic tests.
+</ParamField>
+
+## Methods (from `MekuriEngine` / `MekuriEngineOutput`)
+
+### State and subscription
+
+```ts
+getState(): MekuriState
+```
+
+Returns the current engine snapshot, including page index, mode, direction, zoom scale, active spreads, zoom lock, HUD visibility, active zone map, and failure registry.
+
+```ts
+subscribe(listener: () => void): () => void
+```
+
+Registers a listener that is called whenever the engine state changes. Returns an unsubscribe function.
+
+### Navigation
+
+```ts
+next(): void
+```
+
+Advances to the next page or spread. In `double` mode, advances to the next spread. At the chapter boundary, calls `onBoundaryReached("end")`.
+
+```ts
+prev(): void
+```
+
+Goes back to the previous page or spread. At the chapter boundary, calls `onBoundaryReached("start")`.
+
+```ts
+goToIndex(index: number, relativeOffset?: number): void
+```
+
+Jumps to a specific page index. The optional `relativeOffset` is preserved for continuous modes.
+
+### Reading mode
+
+```ts
+setMode(mode: MekuriMode): void
+```
+
+Changes the reading mode. Supported values: `single`, `double`, `continuous-vertical`, `continuous-webtoon`. When entering `double` mode, the page index is aligned to the start of the containing spread.
+
+```ts
+setDirection(direction: MekuriDirection): void
+```
+
+Sets the reading direction to `ltr` or `rtl`.
+
+### Zoom
+
+```ts
+setZoomScale(scale: number, origin?: MekuriPoint): void
+```
+
+Sets the discrete zoom scale, clamped to `getZoomBounds()`. The `origin` is informational for the transform layer.
+
+```ts
+resetZoom(): void
+```
+
+Resets the zoom scale to `1`.
+
+```ts
+zoomIn(): void
+```
+
+Multiplies the current zoom scale by the step, clamped to the upper bound.
+
+```ts
+zoomOut(): void
+```
+
+Divides the current zoom scale by the step. The floor is `1`, so zooming out from an unzoomed surface is a no-op.
+
+```ts
+getZoomBounds(): MekuriZoomBounds
+```
+
+Returns `{ min: 1, max }` where `max` is read live from the current options.
+
+### Keyboard and input
+
+```ts
+getKeyboardMap(): MekuriKeyboardMap
+```
+
+Returns the effective keyboard map, with host overrides merged over the defaults.
+
+```ts
+isKeyboardSuppressed(): boolean
+```
+
+Returns `true` when the `isKeyboardSuppressed` option is active.
+
+### HUD and preload
+
+```ts
+getPreloadWindow(): number[]
+```
+
+Returns the bounded page indices around the current reading position that should be warmed.
+
+```ts
+toggleHUD(force?: boolean): void
+```
+
+Toggles HUD visibility. Pass a boolean to force a specific state.
+
+### Position reporting
+
+```ts
+getReadingPosition(): MekuriReadingPosition
+```
+
+Returns `{ pageIndex, relativeOffset }` representing the current reading position.
+
+```ts
+reportScroll(scrollOffset: number, pageOffsets: MekuriPageOffset[]): void
+```
+
+Feeds viewport scroll state from the view layer. The engine resolves the dominant page and emits position samples per the throttling contract.
+
+### DOM prop bindings
+
+```ts
+getContainerProps(): MekuriContainerProps
+```
+
+Returns stable typed DOM props for the host-owned container element. The record does not change for a given mode and zoom lock state.
+
+```ts
+getViewportProps(): MekuriViewportProps
+```
+
+Returns stable typed DOM props for the viewport element.
+
+### Image pipeline
+
+```ts
+getPageRequest(pageId: string | number): MekuriPageRequest | undefined
+```
+
+Returns the pipeline state for one page: attempt counter, resolved source, failure record, and retry flag. Returns `undefined` only for ids the current chapter does not carry.
+
+```ts
+resolvePageSrc(pageId: string | number): Promise<string | null>
+```
+
+Advances to the page's current attempt and resolves it through the host resolver. Returns `null` when the page is unknown, the resolver fails, or a newer attempt superseded this one.
+
+```ts
+reportPageLoaded(pageId: string | number): void
+```
+
+Clears the failure and scheduled retry for a page, typically called from an `img onLoad` handler.
+
+```ts
+reportPageLoadFailed(pageId: string | number, code: string, message: string): void
+```
+
+Records a load-stage failure and schedules an automatic retry while attempts remain. The failure codes read from the pipeline are `RESOLVE_FAILED` and `IMAGE_LOAD_FAILED`.
+
+```ts
+retryPage(pageId: string | number): void
+```
+
+Re-resolves one page immediately, bypassing the retry backoff.
+
+```ts
+retryAllFailures(): void
+```
+
+Re-resolves every page currently in the failure registry.
+
+### Controlled mode
+
+```ts
+syncControlled(state: MekuriControlledState | undefined): void
+```
+
+Reconciles the internal mirror with host-owned state. Safe to call during render; never notifies subscribers. No-op in uncontrolled mode.

@@ -1,0 +1,42 @@
+---
+title: "Install the MakiDoku web app on your device"
+sidebarTitle: "Install as Web App"
+description: "Install the MakiDoku web client as a PWA on desktop, Android, and iOS. Covers the manifest, the service worker cache, the update toast, and offline behavior."
+---
+
+The MakiDoku web client ships as an installable Progressive Web App. Once you visit the daemon in a supported browser, the app shell is precached by a service worker, an install prompt appears in the browser chrome, and later releases surface as an in-app update toast.
+
+## Install
+
+<Tabs>
+  <Tab title="Desktop (Chrome, Edge)">
+    Open MakiDoku at `http://127.0.0.1:6254` and click the install icon in the address bar. The window reopens as a standalone app with the MakiDoku icon.
+  </Tab>
+  <Tab title="Android">
+    Open MakiDoku in Chrome and tap **Add to Home screen** in the browser menu. Launching from the home screen opens MakiDoku in standalone mode.
+  </Tab>
+  <Tab title="iOS (Safari)">
+    Open MakiDoku in Safari, tap **Share**, then **Add to Home Screen**. iOS registers the manifest icons and launches MakiDoku in standalone mode.
+  </Tab>
+</Tabs>
+
+## Home screen shortcuts
+
+The manifest declares three quick-launch shortcuts that supported platforms surface from the app icon:
+
+- **Library** → `/library`
+- **Updates** → `/updates`
+- **Downloads** → `/downloads`
+
+## Offline behavior
+
+The service worker precaches the app shell so the UI opens without a network round trip. Two runtime caches back reading:
+
+- Cover images at `/api/manga/{id}/cover` are cached first, kept for 30 days, up to 300 entries.
+- Page images at `/api/pages/{id}/image` are cached first with the same policy.
+
+Every other `/api/` request (JSON snapshots, CBZ downloads, non-GET calls) falls through to the network untouched, and only `200` responses enter the cache so a transient upstream error is never served back later. The service worker never intercepts `/api/**` navigations.
+
+## Updates
+
+Updates are opt-in. When a new build is available, an update toast appears with a **Reload** action; accepting it activates the new service worker and reloads the page. The update store stays inert in browsers that never register a service worker, so the toast will not appear where PWA support is missing.

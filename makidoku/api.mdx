@@ -88,9 +88,13 @@ MakiDoku exposes a local REST API on `http://127.0.0.1:6254`. The base path is `
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/api/download` | Queue snapshot with stats |
+| `GET` | `/api/download` | Queue snapshot with stats and downloader `paused` flag |
 | `POST` | `/api/download` | Enqueue chapters for download |
-| `POST` | `/api/download/clear` | Clear finished items |
+| `POST` | `/api/download/pause-all` | Pause the downloader; workers stop claiming and the in-flight row is returned to the queue |
+| `POST` | `/api/download/resume-all` | Resume the downloader |
+| `POST` | `/api/download/cancel-all` | Cancel every active queue row |
+| `POST` | `/api/download/cancel` | Cancel the listed queue items (body: `{"itemIds":[...]}`) |
+| `POST` | `/api/download/reorder` | Store queue order given as item ids in display order (body: `{"itemIds":[...]}`) |
 | `GET` | `/api/download/events` | WebSocket: real-time events |
 | `POST` | `/api/download/{itemID}/pause` | Pause item |
 | `POST` | `/api/download/{itemID}/resume` | Resume item |

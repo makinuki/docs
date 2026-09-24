@@ -50,16 +50,18 @@ The underlying virtualized column used by `WebtoonView`. It owns scroll alignmen
 | --- | --- | --- |
 | `engine` | `MekuriEngine` | Engine store to mount |
 | `pages` | `MekuriPage[]` | Pages to render |
-| `renderPage` | `(page, index) => ReactNode` | Custom page renderer. Defaults to the source image |
+| `renderPage` | `(page, index, attempt?) => ReactNode` | Custom page renderer. Defaults to the source image. A host body owns its nodes, reports load outcomes to the failure registry through `reportPageLoaded` / `reportPageLoadFailed`, and keys reloads on host state rather than on the attempt alone. |
 | `altLabeler` | `(page, index) => string` | Accessible page description. Defaults to `"Page {index + 1}"` |
 | `formatStatus` | `(label, index, total) => string` | Formats the HUD status announcement |
 | `hud` | `boolean` | Renders the default HUD. Defaults to `true` |
-| `boundarySlot` | `ReactNode` | Rendered over the surface while the reader holds at a chapter boundary |
+| `boundarySlot` | `ReactNode` | Rendered over the surface while the reader holds at a chapter boundary. The mount container takes no pointer events, so slot content opts back in per element where it wants taps. |
 | `showZoneOverlay` | `boolean` | Draws the active zone geometry for host configuration previews. Defaults to `false` |
 | `className` | `string` | Passed to the root element |
 | `style` | `CSSProperties` | Passed to the root element |
+| `gestures` | `boolean` | Attach the gesture layer. Defaults to `true`. Set to `false` when a host owns the dispatcher, so exactly one gesture layer runs (PagedView only). |
+| `keyboard` | `boolean` | Attach the keyboard dispatcher. Defaults to `true`. Set to `false` when a host owns the keyboard layer. |
 | `gestureOptions` | `MekuriSurfaceOptions["gestureOptions"]` | Passed to the gesture layer (PagedView only) |
-| `keyboardOptions` | `MekuriSurfaceOptions["keyboardOptions"]` | Passed to the keyboard layer (PagedView only) |
+| `keyboardOptions` | `MekuriSurfaceOptions["keyboardOptions"]` | Passed to the keyboard layer |
 
 `WebtoonView` also accepts:
 
@@ -84,7 +86,10 @@ The views package exposes several unstyled HUD primitives you can compose into c
 | Hook | Description |
 | --- | --- |
 | `useEngineState(engine)` | Subscribes to engine state changes with `useSyncExternalStore` |
+| `useEngineSelector(engine, select)` | Subscribes to a single field of engine state. The selected value is memoized against the state snapshot, so an object field keeps its identity across unrelated updates. |
 | `useMekuriSurface(options)` | Attaches the gesture and keyboard layers to a surface ref |
+
+The engine argument for both subscription hooks is a `MekuriViewEngine`. `useMekuriEngine` exposes `subscribe`, `getState`, and `reportScroll` on its output so the shipped views and custom surfaces attach to the hook result directly, and `syncControlled` reconciles host-owned state during render.
 
 ## Quick example
 

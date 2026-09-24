@@ -130,7 +130,8 @@
             "pages": [
               "makidoku/introduction",
               "makidoku/quickstart",
-              "makidoku/cli"
+              "makidoku/cli",
+              "makidoku/install-web-app"
             ]
           },
           {

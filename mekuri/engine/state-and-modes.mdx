@@ -66,6 +66,8 @@ engine.setZoomScale(2.5, { x: 100, y: 200 });
 
 The optional `origin` on `setZoomScale` is informational for the layer that applies the transform; the engine stores the scale only, so matrix math stays with the code that owns the DOM.
 
+While `isZoomLocked` is `true`, `next()` and `prev()` are no-ops so keyboard, HUD, and host callers share the gesture-layer zoom lock. Use `goToIndex` as the programmatic restore path that always runs.
+
 Read the current bounds with `getZoomBounds()`:
 
 ```ts

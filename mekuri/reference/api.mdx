@@ -106,13 +106,13 @@ Registers a listener that is called whenever the engine state changes. Returns a
 next(): void
 ```
 
-Advances to the next page or spread. In `double` mode, advances to the next spread. At the chapter boundary, calls `onBoundaryReached("end")`.
+Advances to the next page or spread. In `double` mode, advances to the next spread. At the chapter boundary, calls `onBoundaryReached("end")`. No-op while `isZoomLocked` is `true`, so keyboard, HUD, and host callers all share the gesture-layer zoom lock.
 
 ```ts
 prev(): void
 ```
 
-Goes back to the previous page or spread. At the chapter boundary, calls `onBoundaryReached("start")`.
+Goes back to the previous page or spread. At the chapter boundary, calls `onBoundaryReached("start")`. Same zoom-lock rule as `next()`; use `goToIndex` when a restore needs to run regardless of zoom state.
 
 ```ts
 goToIndex(index: number, relativeOffset?: number): void

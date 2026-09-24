@@ -1,10 +1,12 @@
 ---
 title: "Download manga chapters with MakiDoku"
 sidebarTitle: "Downloads"
-description: "Queue chapters for download in SQLite, output CBZ archives or folders with ComicInfo.xml, and monitor progress through the REST API or WebSocket events."
+description: "Queue chapters, reorder or cancel rows, pause the whole downloader, and stream progress over WebSocket. Output CBZ archives or folders with ComicInfo.xml."
 ---
 
 MakiDoku stores its download queue in SQLite so interrupted downloads resume automatically. Image requests reuse the same per-source HTTP client, cookie jar, and anti-bot clearance as plugin requests. Scrambled pages are passed through the source's `unscramble_image` export before they are written.
+
+The download queue holds only live rows: a chapter leaves the queue as its artifact is written, and cancelling removes the row. Terminal rows from earlier versions are dropped by a migration on first launch.
 
 ## Output formats
 
@@ -12,6 +14,20 @@ Downloaded chapters are stored under `<data-dir>/downloads/<source>/<title>/` by
 
 - **CBZ** archives contain zero-padded page names (minimum width 3) and a `ComicInfo.xml` metadata file.
 - **Folder** output extracts each chapter into its own directory with the same page naming and `ComicInfo.xml`.
+
+## Queue order
+
+Every queue row carries a position. Workers claim the lowest position first, so the order a client shows is the order downloads start in. Reorder the queue by sending the item ids in display order to `/api/download/reorder`, and the snapshot broadcast to every subscriber will reflect the new order on the next event.
+
+## Pause the whole downloader
+
+Pausing applies to the downloader itself, not to a single row. While paused:
+
+- Workers stop claiming new items.
+- The chapter being fetched is returned to the queue with the pages it already saved.
+- Every queue event carries `paused: true` so clients can render the state without a follow-up read.
+
+Resume with `/api/download/resume-all`; workers begin claiming from the lowest position again.
 
 ## Headless download (CLI)
 
@@ -42,8 +58,10 @@ go run . download 'mangadex:<manga-id>' --chapters 1-5 \
     ```bash
     curl http://127.0.0.1:6254/api/download
     ```
+
+    The response includes every queue row, the aggregate counters, and a `paused` boolean for the downloader state.
   </Step>
-  <Step title="Control an item">
+  <Step title="Control one row">
     ```bash
     curl -X POST http://127.0.0.1:6254/api/download/1/pause
     curl -X POST http://127.0.0.1:6254/api/download/1/resume
@@ -51,16 +69,47 @@ go run . download 'mangadex:<manga-id>' --chapters 1-5 \
     curl -X POST http://127.0.0.1:6254/api/download/1/retry
     ```
   </Step>
-  <Step title="Clear finished items">
+  <Step title="Reorder or batch cancel">
     ```bash
-    curl -X POST http://127.0.0.1:6254/api/download/clear
+    curl -X POST http://127.0.0.1:6254/api/download/reorder \
+      -H 'Content-Type: application/json' \
+      -d '{"itemIds":[3,1,2]}'
+    
+    curl -X POST http://127.0.0.1:6254/api/download/cancel \
+      -H 'Content-Type: application/json' \
+      -d '{"itemIds":[1,2]}'
     ```
+
+    Batch cancel is best effort: rows that finished or were cancelled meanwhile are skipped instead of failing the whole request.
+  </Step>
+  <Step title="Pause, resume, or cancel everything">
+    ```bash
+    curl -X POST http://127.0.0.1:6254/api/download/pause-all
+    curl -X POST http://127.0.0.1:6254/api/download/resume-all
+    curl -X POST http://127.0.0.1:6254/api/download/cancel-all
+    ```
+
+    Each of these answers with the updated queue snapshot so the client does not need a follow-up read.
   </Step>
 </Steps>
 
+## Downloads page (web client)
+
+The web client renders the queue grouped by source with expandable headers. Each row carries a drag handle and can be reordered by mouse or keyboard, and the queue sorts by upload date or chapter number inside each source.
+
+The row overflow menu offers:
+
+- Move to top, move series to top
+- Move to bottom, move series to bottom
+- Retry on failure
+- Cancel, cancel all for this series
+- Open the title
+
+A floating control pauses and resumes the downloader, and the queue overflow menu holds cancel all.
+
 ## WebSocket events
 
-Connect to `ws://127.0.0.1:6254/api/download/events` for real-time updates. Each event includes the current queue item and aggregate downloader counters.
+Connect to `ws://127.0.0.1:6254/api/download/events` for real-time updates. Each event carries the current queue row, the aggregate counters, and the downloader `paused` flag.
 
 Event types:
 
@@ -74,4 +123,4 @@ Event types:
 
 ## Automatic downloads
 
-MakiDoku can automatically queue new chapters for titles that have the setting enabled. This is triggered during library updates and when refreshing an individual title. Use the API or web UI to toggle auto-download per title.
+MakiDoku can automatically queue new chapters for titles that have the setting enabled. Auto-download is triggered during scheduled library updates and on the per-title refresh path. Use the API or web UI to toggle auto-download per title.

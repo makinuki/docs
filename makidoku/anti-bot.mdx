@@ -21,16 +21,42 @@ The cookie and agent are stored with the source and applied to all later request
 
 ## Wait for clearance during reads
 
-Set `--challenge-wait` (or `MAKIDOKU_CHALLENGE_WAIT`) to hold a blocked read while you submit clearance. With a positive wait:
+A blocked read is held while clearance is obtained, so the operation that was interrupted continues rather than failing. The wait is two minutes by default and is set with `--challenge-wait` or `MAKIDOKU_CHALLENGE_WAIT`. With a positive wait:
 
 - A blocked GET or HEAD is held until clearance arrives or the wait elapses, then replayed once.
 - Writes are always returned to the plugin so it can decide whether re-invoking is safe.
 
 ```bash
-go run . serve --challenge-wait 2m
+go run . serve --challenge-wait 5m
 ```
 
-With a zero wait (the default), a challenged request fails immediately with `CLOUDFLARE_BLOCKED`.
+Set the wait to `0` to fail a challenged request immediately with `CLOUDFLARE_BLOCKED` instead of holding it.
+
+## Answer a challenge in a browser
+
+On Windows, an embedded browser can present the site and capture the clearance cookie for you. From the command line:
+
+```bash
+go run . solve https://example.invalid/
+```
+
+A window opens on the origin. The challenge may clear on its own or wait for a click; both are expected. Cookie values are never printed; only the names that were stored are shown.
+
+The local API exposes the same action at `POST /api/sources/{id}/clearance/solve`, with an optional `origin` in the body. The origin is taken from the outstanding challenge when it is omitted. The request is held while the window is open and answers with:
+
+- `captured`: clearance material was read
+- `verified`: a request that was previously blocked now succeeds
+- `cookies`: the names that were stored
+
+Capture and verification are reported separately because they answer different questions. A captured cookie that does not verify means the material was stored and the site is still refusing requests, and the request to check again is shown again.
+
+Check that the browser works on this machine with:
+
+```bash
+go run . doctor
+```
+
+If the browser runtime is missing, or the machine has no desktop session to show a window on, both commands say so and the manual route above remains available.
 
 ## Error code reference
 

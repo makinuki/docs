@@ -18,7 +18,7 @@ These flags apply to every command.
 | `--workers` | `3` or `$MAKIDOKU_DOWNLOAD_WORKERS` | Concurrent chapter download workers |
 | `--page-interval` | `500ms` or `$MAKIDOKU_PAGE_INTERVAL` | Minimum interval between image requests to the same domain |
 | `--registry` | Public registry or `$MAKIDOKU_REGISTRY_URL` | Source catalog URL or local mirror path |
-| `--challenge-wait` | `0` or `$MAKIDOKU_CHALLENGE_WAIT` | How long a blocked request waits for anti-bot clearance |
+| `--challenge-wait` | `2m` or `$MAKIDOKU_CHALLENGE_WAIT` | How long a blocked request waits for anti-bot clearance. `0` fails it immediately |
 
 ## Commands
 

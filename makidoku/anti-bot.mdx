@@ -48,7 +48,9 @@ The local API exposes the same action at `POST /api/sources/{id}/clearance/solve
 - `verified`: a request that was previously blocked now succeeds
 - `cookies`: the names that were stored
 
-Capture and verification are reported separately because they answer different questions. A captured cookie that does not verify means the material was stored and the site is still refusing requests, and the request to check again is shown again.
+Capture and verification are reported separately because they answer different questions. A captured cookie that does not verify means the material was stored and the site is still refusing requests.
+
+One solve is held per origin. A second request while a window is still open is refused with `409 Conflict` rather than opening a second window for the same challenge.
 
 Check that the browser works on this machine with:
 

@@ -85,20 +85,35 @@ curl -X POST http://127.0.0.1:6254/api/trackers/mangaupdates/login \
 curl http://127.0.0.1:6254/api/trackers
 ```
 
-## Bind a tracker to a title
+## Update tracker binding metadata
 
 ```bash
-curl -X POST 'http://127.0.0.1:6254/api/manga/<manga-id>/trackers/anilist/bind' \
+curl -X PATCH 'http://127.0.0.1:6254/api/manga/<manga-id>/trackers/anilist' \
   -H 'Content-Type: application/json' \
   -d '{
     "remoteId": "12345",
-    "remoteTitle": "Yosuga no Sora"
+    "remoteTitle": "Yosuga no Sora",
+    "score": 8.5,
+    "startedAt": 1711929600,
+    "finishedAt": 1720000000
   }'
 ```
 
 ## Progress sync
 
-Reader progress is stored locally. When a chapter reaches 90 percent read or is explicitly completed, MakiDoku enqueues one durable job per bound tracker. Run the sync worker from the CLI:
+Reader progress is stored locally. When a chapter reaches 90 percent read or is explicitly completed, MakiDoku enqueues one durable job per bound tracker. You can also push progress manually via the API or run the sync worker from the CLI.
+
+```bash
+curl -X POST http://127.0.0.1:6254/api/progress \
+  -H 'Content-Type: application/json' \
+  -d '{"mangaId":"<manga-id>","chapterId":"<chapter-id>","percent":0.9}'
+
+curl -X POST http://127.0.0.1:6254/api/progress/complete \
+  -H 'Content-Type: application/json' \
+  -d '{"mangaId":"<manga-id>","chapterId":"<chapter-id>"}'
+```
+
+Run the sync worker from the CLI:
 
 ```bash
 go run . sync --tracker anilist

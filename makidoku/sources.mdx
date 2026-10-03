@@ -57,13 +57,75 @@ curl http://127.0.0.1:6254/api/sources/mangadex/filters
 
 # Search
 curl 'http://127.0.0.1:6254/api/sources/mangadex/search?q=Yosuga+no+Sora&page=1'
-
-# Title details
-curl 'http://127.0.0.1:6254/api/sources/mangadex/details?mangaId=<id>'
-
-# Chapter pages
-curl 'http://127.0.0.1:6254/api/sources/mangadex/pages?chapterId=<id>'
 ```
+
+Search results are persisted locally as manga stubs so the library can reference them without contacting the source again. Chapter pages are fetched through `/api/chapters/{chapterID}/pages` and served via `/api/pages/{pageID}/image` once a title is in the library.
+
+## Pin a source
+
+Pinning moves a source to the top of the installed list.
+
+```bash
+curl -X PATCH http://127.0.0.1:6254/api/sources/mangadex \
+  -H 'Content-Type: application/json' \
+  -d '{"pinned":true}'
+```
+
+## Source icon
+
+Icons are served as the bytes the registry publishes:
+
+```bash
+curl http://127.0.0.1:6254/api/sources/mangadex/icon
+```
+
+## Source settings
+
+Sources can expose configurable settings such as credentials or display preferences.
+
+```bash
+# List settings and their current values
+curl http://127.0.0.1:6254/api/sources/mangadex/settings
+
+# Write a setting
+curl -X PUT http://127.0.0.1:6254/api/sources/mangadex/settings/my-setting \
+  -H 'Content-Type: application/json' \
+  -d '{"value":"my-value"}'
+```
+
+Sensitive settings report whether they are set but never expose their value. Sending `null` as the value deletes the stored override and restores the schema default.
+
+## Chapter language filtering
+
+Set the chapter language selection per source so only chapters in chosen languages appear.
+
+```bash
+# Read the current source languages
+curl http://127.0.0.1:6254/api/sources/mangadex
+
+# Store a selection (an empty list clears the override)
+curl -X PUT http://127.0.0.1:6254/api/sources/mangadex/languages \
+  -H 'Content-Type: application/json' \
+  -d '{"languages":["en","ja"]}'
+```
+
+When a source has no explicit selection, the global default from settings is used.
+
+## Download pacing per source
+
+Override page interval, retry attempts, and retry backoff for one source.
+
+```bash
+# View the three pacing layers: override, source hint, and host defaults
+curl http://127.0.0.1:6254/api/sources/mangadex/downloads
+
+# Store an override (null follows the source hint or default)
+curl -X PUT http://127.0.0.1:6254/api/sources/mangadex/downloads \
+  -H 'Content-Type: application/json' \
+  -d '{"intervalMs":1000,"maxAttempts":5,"backoffMs":2000}'
+```
+
+Accepted bounds are `0` to `3600000` for interval, `0` to `10` for attempts, and `0` to `60000` for backoff. A row whose fields are all null removes the override entirely.
 
 ## Catalog and updates
 

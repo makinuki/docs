@@ -8,7 +8,7 @@ MakiDoku is a single Go binary with an embedded React reader. To get started, bu
 
 ## Prerequisites
 
-- Go 1.26.2.2 or later (required by `go.mod`)
+- Go 1.26.2 or later (required by `go.mod`)
 - pnpm (to build the web UI)
 
 ## Build and run
@@ -54,6 +54,20 @@ MakiDoku is a single Go binary with an embedded React reader. To get started, bu
     ```
   </Step>
 </Steps>
+
+## Available commands
+
+MakiDoku provides a Cobra CLI with the following subcommands:
+
+- `serve` - Start the daemon and serve the web UI
+- `download` - Headless batch download without starting the server
+- `sync` - Manually push pending tracker progress
+- `export` - Export library backup to JSON
+- `import` - Import library backup from JSON
+- `install` - Install a source from the catalog or a local binary
+- `version` - Print the binary version
+
+Global flags include `--data-dir`, `--download-dir`, `--workers`, `--page-interval`, `--registry`, `--challenge-wait`, and `--verbose`.
 
 ## Data directory
 

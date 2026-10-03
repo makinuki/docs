@@ -122,13 +122,18 @@ Connect to `ws://127.0.0.1:6254/api/download/events` for real-time updates. Each
 
 Event types:
 
-- `queued`
-- `progress`
-- `paused`
-- `resumed`
-- `canceled`
-- `completed`
-- `failed`
+- `queued` - a new item was added to the queue
+- `progress` - a page finished downloading
+- `pending` - an item transitioned to or from active state
+- `paused` - a single row was paused
+- `resumed` - a single row was resumed
+- `canceled` - a row was removed from the queue
+- `completed` - a chapter finished and left the queue
+- `failed` - a row errored and stopped
+- `state` - the downloader itself was paused or resumed
+- `reordered` - the queue order changed; clients should refetch the snapshot
+
+`completed` and `canceled` events announce a row that has just left the queue, so a client drops it. `state` events carry no item, only the aggregate stats and paused flag. Individual row events carry the affected queue row.
 
 ## Automatic downloads
 

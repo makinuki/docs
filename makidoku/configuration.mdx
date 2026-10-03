@@ -1,10 +1,10 @@
 ---
 title: "Configure MakiDoku with environment variables and CLI flags"
 sidebarTitle: "Configuration"
-description: "Customize MakiDoku through environment variables, CLI flags, and the .env file. Covers data directory, registry, tracker OAuth, download behavior, and image cache."
+description: "Customize MakiDoku through environment variables and CLI flags. Covers data directory, registry, tracker OAuth, download behavior, and image cache."
 ---
 
-MakiDoku reads configuration from CLI flags, environment variables, and an optional `.env` file. Flags take precedence over environment variables. The daemon searches for `.env` starting at the working directory and walking up through parent directories, so it works for both the daemon and `go test` invocations.
+MakiDoku reads configuration from CLI flags and environment variables. Flags take precedence over environment values.
 
 ## Environment variables
 
@@ -50,15 +50,15 @@ MakiDoku reads configuration from CLI flags, environment variables, and an optio
 | `MAKIDOKU_IMAGE_CACHE_MAX_BYTES` | `536870912` (512 MiB) | Processed image cache size budget |
 | `MAKIDOKU_IMAGE_CACHE_MAX_AGE` | `720h` (30 days) | Processed image cache retention age |
 
-## OAuth application settings (`.env`)
+## OAuth application settings
 
-Create an OAuth app per provider and register the exact redirect URI, including the port. Add these to your `.env` file:
+Create an OAuth app per provider and register the exact redirect URI, including the port. Set these as environment variables or export them in your shell before starting the daemon:
 
 ```bash
-ANILIST_CLIENT_ID=your-id
-ANILIST_CLIENT_SECRET=your-secret
-MYANIMELIST_CLIENT_ID=your-id
-MANGABAKA_CLIENT_ID=your-id
+export ANILIST_CLIENT_ID=your-id
+export ANILIST_CLIENT_SECRET=your-secret
+export MYANIMELIST_CLIENT_ID=your-id
+export MANGABAKA_CLIENT_ID=your-id
 ```
 
 MangaUpdates and Kitsu use username/password login through the local API and do not require application registration.
@@ -137,9 +137,9 @@ Every flag has an equivalent environment variable. Flags override environment va
 
 MakiDoku also stores user preferences in SQLite and exposes them through the REST API. See the [API reference](/makidoku/api) for `/api/settings` endpoints. Key settings include:
 
-- `reader.default_mode`, `reader.direction`, `reader.fit`
+- `reader.default_mode`, `reader.direction`, `reader.fit`, `reader.navigation`, `reader.theme`, `reader.brightness`
 - `library.update_interval`, `library.update_on_launch`
-- `downloads.auto_download`, `downloads.download_ahead`, `downloads.concurrent`
+- `downloads.auto_download`, `downloads.download_ahead`, `downloads.concurrent`, `downloads.page_interval`, `downloads.retry_attempts`
 - `tracking.auto_sync`
 - `backup.auto_interval`, `backup.auto_keep`
 - `privacy.incognito`

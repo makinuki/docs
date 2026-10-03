@@ -6,6 +6,15 @@ description: "Run pnpm test [id] to validate plugin output against JSON schemas 
 
 The conformance test runner exercises every plugin export against live source websites and asserts payloads against the canonical JSON Schemas shipped in `@makinuki/spec`. Because tests hit real endpoints, a network connection is required and results may vary from one network to another.
 
+Beyond checking schemas, the runner enforces contract rules hosts rely on:
+
+- Every URL it inspects (search item, chapter, and page URLs) must be an absolute http(s) URI.
+- Page indexes must be sequential from zero.
+- A page marked scrambled must carry descramble metadata.
+- The runner proves the page-schema contract itself before any plugin runs, so a schema regression fails fast.
+- When a plugin exports the optional `get_settings`, the runner validates the payload against the settings schema, requires unique setting ids and a text-shaped `base_url` setting, and proves the storage wiring persists values through a round-trip write.
+- The pass line reports which optional exports (`get_settings`, `unscramble_image`) a plugin carries. Plugins without settings still pass.
+
 ## Run the tests
 
 Test every built plugin in `dist/`:
@@ -37,6 +46,8 @@ If `test.json` is absent, the runner uses a default query and probes the first f
 ## Challenge-gated sources
 
 Some sources sit behind an anti-bot challenge (such as Cloudflare) that a headless runner cannot solve. Hosting and CI networks are challenged far more often than desktop connections, so a source can work perfectly from a browser and still be unreachable from the test pipeline.
+
+A source may declare `rateLimit` and `retry` transfer hints in its metadata. These are host guidance, not requirements: hosts may honor, cap, or let users override them. The runner does not enforce these values, but `pnpm generate-index` carries whatever a plugin declares into the registry entries in `dist/index.json`.
 
 When a plugin sets `challengeGated: true` in its `test.json`, the runner reports `SKIP` instead of failing, as long as the plugin still answers with a well-formed envelope carrying the `CLOUDFLARE_BLOCKED` error code. Any other failure mode (a parse error, a different error code, or a non-conforming response) still fails the run, so regressions are caught.
 

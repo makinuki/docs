@@ -32,34 +32,6 @@ go run . serve --challenge-wait 5m
 
 Set the wait to `0` to fail a challenged request immediately with `CLOUDFLARE_BLOCKED` instead of holding it.
 
-## Answer a challenge in a browser
-
-On Windows, an embedded browser can present the site and capture the clearance cookie for you. From the command line:
-
-```bash
-go run . solve https://example.invalid/
-```
-
-A window opens on the origin. The challenge may clear on its own or wait for a click; both are expected. Cookie values are never printed; only the names that were stored are shown.
-
-The local API exposes the same action at `POST /api/sources/{id}/clearance/solve`, with an optional `origin` in the body. The origin is taken from the outstanding challenge when it is omitted. The request is held while the window is open and answers with:
-
-- `captured`: clearance material was read
-- `verified`: a request that was previously blocked now succeeds
-- `cookies`: the names that were stored
-
-Capture and verification are reported separately because they answer different questions. A captured cookie that does not verify means the material was stored and the site is still refusing requests.
-
-One solve is held per origin. A second request while a window is still open is refused with `409 Conflict` rather than opening a second window for the same challenge.
-
-Check that the browser works on this machine with:
-
-```bash
-go run . doctor
-```
-
-If the browser runtime is missing, or the machine has no desktop session to show a window on, both commands say so and the manual route above remains available.
-
 ## Error code reference
 
 `CLOUDFLARE_BLOCKED` is one of the standardized MakiNuki error codes. See the [error codes specification](/spec/error-codes) for the full list and their HTTP status mappings.

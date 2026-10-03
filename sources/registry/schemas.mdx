@@ -1,7 +1,7 @@
 ---
 title: "Registry JSON Schemas for Plugin Output Validation"
 sidebarTitle: "Schemas"
-description: "Eight JSON Schemas served from makinuki.github.io validate registry manifests, source metadata, filters, manga items, details, chapters, and pages. Also available in the @makinuki/spec npm package."
+description: "Nine JSON Schemas served from makinuki.github.io validate registry manifests, source metadata, filters, manga items, details, chapters, pages, and settings. Also available in the @makinuki/spec npm package."
 ---
 
 The MakiNuki registry and conformance runner share a single set of JSON Schemas. They are served from `https://makinuki.github.io/schemas/` and also ship inside the `@makinuki/spec` npm package. These schemas define the exact shape of every payload a source plugin can emit, from the top-level registry manifest down to a single page image.
@@ -11,13 +11,14 @@ The MakiNuki registry and conformance runner share a single set of JSON Schemas.
 | File | Validates | Description |
 | --- | --- | --- |
 | `index.schema.json` | `index.json` | The full registry manifest: version, updatedAt, and the sources array |
-| `metadata.schema.json` | `SourceMetadata` | Static metadata returned by `get_metadata()`: id, name, version, abiVersion, lang, baseUrl, iconUrl, nsfw |
+| `metadata.schema.json` | `SourceMetadata` | Static metadata returned by `get_metadata()`: id, name, version, abiVersion, lang, baseUrl, iconUrl, nsfw, plus optional rateLimit and retry hints |
 | `filter.schema.json` | `FilterSchema[]` | Array of filter definitions returned by `get_filters()`: select, tri_state, checkbox, and text filters |
 | `manga.schema.json` | `PageResult<MangaItem>` | Search results payload: paginated list of manga items with optional cover variants |
 | `details.schema.json` | `MangaDetails` | Details payload for a single manga: title, status, authors, genres, and an array of chapters |
 | `chapter.schema.json` | `ChapterItem` | Individual chapter inside `MangaDetails.chapters`: number, volume, language, title, scanlator |
 | `page.schema.json` | `PageItem` | Single image page returned by `get_pages()`: index, url, headers, and optional scramble metadata |
 | `pages.schema.json` | `PageItem[]` | Ordered array of page items, the direct output of `get_pages()` |
+| `settings.schema.json` | `SettingSchema[]` | Array of setting definitions returned by `get_settings()`: checkbox, select, and text settings |
 
 ## Key schema details
 
@@ -38,6 +39,16 @@ Each page carries an `isScrambled` flag. When `true`, the `metadata` field is re
 - `rows` and `cols`: grid dimensions
 - `tileW` and `tileH`: tile dimensions in pixels
 - `order`: array mapping each position to the original tile index
+
+### Settings schema (`settings.schema.json`)
+
+Plugins can export the optional `get_settings()` function to expose user-configurable values. The settings schema supports three types:
+
+- **`checkbox`**: Boolean toggle with a `default` value.
+- **`select`**: Dropdown with predefined `options` (label/value pairs) and a single `default` string.
+- **`text`**: Free-text input with an optional `placeholder`, `default`, and a `sensitive` flag for password or cookie fields that hosts must mask and never echo back.
+
+The conformance runner requires that every plugin declaring settings includes a text-shaped `base_url` setting and uses unique ids across all entries.
 
 ## Using schemas in your host
 

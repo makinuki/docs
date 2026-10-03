@@ -14,6 +14,10 @@ Plugins read and write small key-value pairs through the `makinuki_storage_get` 
 export interface StorageAdapter {
   get(key: string): Promise<string | null>;
   set(key: string, value: string): Promise<void>;
+  delete(key: string): Promise<void>;
+}
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<void>;
 }
 ```
 

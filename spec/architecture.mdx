@@ -25,6 +25,7 @@ The ABI 1 contract defines a strict boundary between the host runtime and each M
 │  Plugin Exports:                                       │
 │    • get_metadata() -> SourceMetadata                  │
 │    • get_filters() -> FilterSchema[]                   │
+│    • [Optional] get_settings() -> SettingSchema[]      │
 │    • search(query_json) -> PageResult<MangaItem>       │
 │    • get_details(manga_id_string) -> MangaDetails      │
 │    • get_pages(chapter_id_string) -> PageItem[]        │
@@ -53,6 +54,7 @@ Every ABI 1 plugin must export these functions. Static exports return raw JSON. 
 | :-- | :-- | :-- |
 | `get_metadata()` | Static | `SourceMetadata` JSON |
 | `get_filters()` | Static | `FilterSchema[]` JSON |
+| `get_settings()` | Static (optional) | `SettingSchema[]` JSON |
 | `search(query_json)` | Dynamic | `PluginResult<PageResult<MangaItem>>` JSON |
 | `get_details(manga_id)` | Dynamic | `PluginResult<MangaDetails>` JSON |
 | `get_pages(chapter_id)` | Dynamic | `PluginResult<PageItem[]>` JSON |

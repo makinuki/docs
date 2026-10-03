@@ -53,6 +53,8 @@ Every rendered element carries a `data-mekuri-*` attribute so you can style or q
 | `data-mekuri-boundary` | Boundary mount point | Rendered when `boundarySlot` is provided |
 | `data-mekuri-paged-page` | Pages inside `PagedView` | Present on every page wrapper |
 | `data-mekuri-page` | Pages inside any view | Present on every page wrapper |
+| `data-mekuri-view` | Webtoon view root | Present on `WebtoonView` wrapper |
+| `data-mekuri-view` | Webtoon view root | Present on `WebtoonView` wrapper |
 | `data-mode` | View root | `single`, `double`, `continuous-vertical`, `continuous-webtoon` |
 | `data-direction` | View root | `ltr`, `rtl` |
 | `data-zoomed` | View root | `true` when zoom scale is greater than `1` |
@@ -72,7 +74,7 @@ You can use these attributes to write selectors that react to engine state:
 
 ## Replacing the default stylesheet
 
-You can drop `<MekuriViewStyles />` entirely and provide your own stylesheet using the same data attributes and CSS variables. The views keep their structural inline styles regardless, so layout remains intact even when the default look is removed.
+The `MekuriViewStyles` component injects the default stylesheet as a `<style>` tag. You can also import `MEKURI_VIEW_CSS` as a string to pass through your own build pipeline, or use the `MEKURI_THEME_TOKENS` array to enumerate the customizable CSS custom propertiThe `MekuriViewStyles` component injects the default stylesheet as a `<style>` tag. You can also import `MEKURI_VIEW_CSS` as a string to pass through your own build pipeline, or use the `MEKURI_THEME_TOKENS` array to enumerate the customizable CSS custom propertiThe `MekuriViewStyles` component injects the default stylesheet as a `<style>` tag. You can also import `MEKURI_VIEW_CSS` as a string to pass through your own build pipeline, or use the `MEKURI_THEME_TOKENS` array to enumerate the customizable CSS custom properties. The views keep their structural inline styles regardless, so layout remains intact even when the default look is removed.
 
 ```tsx
 import { WebtoonView } from "@makinuki/mekuri/views";

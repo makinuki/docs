@@ -12,9 +12,9 @@ The MakiNuki PDK (`@makinuki/pdk`) is a TypeScript development kit for authoring
 - Host wrappers for the MakiNuki host imports: `fetch`, `storageGet`, `storageSet`, `log`.
 - A `parseHTML` helper backed by `cheerio/slim` for HTML scraping inside the WASM sandbox.
 - Small URL and text utilities: `resolveUrl`, `cleanText`, `parseChapterNumber`.
-- TypeScript types for every payload the ABI defines.
+- TypeScript types for every payload the ABI defines, including `RateLimitHint` and `RetryHint` on `SourceMetadata`.
 - `ok(data)` and `fail(code, message)` helpers that produce the `PluginResult` envelope.
-- A starter interface file at `template/index.d.ts` that declares the plugin exports and host imports.
+- A starter interface file at `template/index.d.ts` that declares the plugin exports (including the optional `get_settings`) and host imports.
 
 ## Prerequisites
 

@@ -23,10 +23,12 @@ If the registry is unreachable, the worker falls back to `EXTRA_ALLOWED_HOSTS` o
 
 ## SSRF guards
 
-The worker rejects any URL that looks like an internal or loopback address, regardless of allowlist entries:
+The worker rejects any URL that contains an IP-literal host or looks like an internal address, regardless of allowlist entries:
 
-- **IP literals**: all numeric hosts (`127.1`, `2130706433`, `0x7f000001`, leading-zero forms, IPv6).
-- **Local names**: `localhost`, `*.local`, `*.internal`.
+- **IP literals**: all numeric hosts are rejected, including both private ranges (`127.0.0.1`, `10.0.0.0/8`, `192.168.x.x`, `172.16.x.x`, `169.254.x.x`) and public IP literals (`8.8.8.8`).
+- **Obfuscated forms**: dotted shorthand (`127.1`), decimal (`2130706433`), hex (`0x7f000001`), leading-zero octal (`0177.0.0.1`), and trailing-dot FQDN forms (`127.0.0.1.`).
+- **IPv6**: any host containing a colon (`:`) is rejected.
+- **Local names**: `localhost`, `*.localhost`, `*.local`, `*.internal`.
 - **URL credentials**: usernames or passwords in the URL are rejected.
 - **Non-HTTP(S)**: only `http:` and `https:` are allowed.
 
@@ -85,6 +87,10 @@ te, trailer, upgrade
 ```
 
 A default Chrome User-Agent is added if the client did not provide one.
+
+## Image response security headers
+
+For image pass-through (`GET /proxy`), the worker strips `content-security-policy` and `x-frame-options` from the upstream response so images can be rendered inline without being blocked by frame or CSP restrictions inherited from the original host.
 
 ## Environment variables and secrets
 

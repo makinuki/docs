@@ -43,7 +43,7 @@ This quickstart walks through building a minimal MakiNuki plugin in TypeScript a
     The `makinuki-build` bin is provided by `@makinuki/pdk`, so no separate install is required.
   </Step>
   <Step title="Copy the interface file">
-    Copy `template/index.d.ts` from `@makinuki/pdk` into your project, for example at `src/index.d.ts`. This file declares the plugin exports the WASM module must expose (`get_metadata`, `get_filters`, `search`, `get_details`, `get_pages`, and the optional `unscramble_image`) and the `extism:host` import module for MakiNuki host services.
+    Copy `template/index.d.ts` from `@makinuki/pdk` into your project, for example at `src/index.d.ts`. This file declares the plugin exports the WASM module must expose (`get_metadata`, `get_filters`, `search`, `get_details`, `get_pages`, the optional `get_settings`, and the optional `unscramble_image`) and the `extism:host` import module for MakiNuki host services.
 
     <Tip>
       Keep the interface file next to your entry point. The build CLI defaults to reading it from `src/index.d.ts`.

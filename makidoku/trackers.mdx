@@ -12,9 +12,9 @@ MakiDoku supports several tracker providers so your reading progress stays in sy
 | --- | --- | --- | --- |
 | AniList | Yes | Yes | OAuth |
 | MyAnimeList | Yes | Yes | OAuth |
-| MangaBaka | Yes | Yes | OAuth or PAT |
-| MangaUpdates | Yes | No (search only) | OAuth |
-| Kitsu | Yes | No (search only) | OAuth |
+| MangaBaka | Yes | Yes | OAuth or token/PAT |
+| MangaUpdates | Yes | Yes | Username/password |
+| Kitsu | Yes | Yes | Username/password |
 
 ## Prerequisites
 
@@ -22,7 +22,7 @@ Tracker credential storage requires the `MAKIDOKU_SECRET` environment variable. 
 
 ## OAuth setup
 
-Register an OAuth application with each provider you want to use. The redirect URI must exactly match:
+Register an OAuth application with each provider that uses browser authorization. The redirect URI must exactly match:
 
 ```text
 http://127.0.0.1:6254/api/trackers/<provider>/auth/callback
@@ -37,7 +37,7 @@ MYANIMELIST_CLIENT_ID=your-id
 MANGABAKA_CLIENT_ID=your-id
 ```
 
-Kitsu and MangaUpdates do not require application registration.
+MangaUpdates and Kitsu do not require application registration. They authenticate with a username and password through the local API.
 
 ## Authenticate via the API
 
@@ -70,6 +70,14 @@ curl -X POST http://127.0.0.1:6254/api/trackers/mangabaka/token \
 ```
 
 The PAT is encrypted before storage. Authenticated MangaBaka requests send the stored PAT in the `X-API-Key` header.
+
+### Username/password login (MangaUpdates and Kitsu)
+
+```bash
+curl -X POST http://127.0.0.1:6254/api/trackers/mangaupdates/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"your-user","password":"your-pass"}'
+```
 
 ### View connected trackers
 

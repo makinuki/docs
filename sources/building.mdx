@@ -53,6 +53,12 @@ Before building, make sure your environment has the following tools installed an
    ```
 4. Exits with the compiler status on the first failure, or prints the total count on success.
 
+You can also pass plugin ids to build only a subset:
+
+```bash
+pnpm build mangadex weebcentral
+```
+
 ## Build output
 
 After a successful run, `dist/` contains one `.wasm` file per source:

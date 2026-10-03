@@ -29,6 +29,8 @@ The engine ships with five presets:
 
 The active zone map appears in derived state as `activeZoneMap`. In RTL mode, the `next` and `prev` actions are swapped at dispatch time, so presets do not need RTL variants.
 
+Presets are also exported as inspectable data in `ZONE_MAP_PRESETS`, so a host settings dialog can list and preview them without re-declaring geometry.
+
 ## Keyboard
 
 `MekuriKeyboardMap` defines shortcuts as arrays of `KeyboardEvent.code` strings:

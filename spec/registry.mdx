@@ -26,7 +26,15 @@ The registry root is a single JSON file, typically hosted at `https://makinuki.g
       "nsfw": false,
       "wasmUrl": "https://makinuki.github.io/wasm/asura-scans-v1.0.4.wasm",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "minRuntimeVersion": "1.0.0"
+      "minRuntimeVersion": "1.0.0",
+      "rateLimit": {
+        "intervalMs": 1000,
+        "burst": 2
+      },
+      "retry": {
+        "maxAttempts": 3,
+        "backoffMs": 500
+      }
     }
   ]
 }
@@ -80,6 +88,14 @@ The registry root is a single JSON file, typically hosted at `https://makinuki.g
 
 <ParamField body="allowedHosts" type="string[]">
   Optional list of image or CDN hostnames the source uses beyond `baseUrl`. Transport proxies use `baseUrl` plus `allowedHosts` as their host allowlist.
+</ParamField>
+
+<ParamField body="rateLimit" type="object">
+  Optional politeness policy the source asks hosts to keep. Contains `intervalMs` (minimum delay between requests) and `burst` (concurrent requests tolerated).
+</ParamField>
+
+<ParamField body="retry" type="object">
+  Optional retry policy the source suggests for failed requests. Contains `maxAttempts` (attempts before giving up) and `backoffMs` (base delay between retries).
 </ParamField>
 
 ## Source Validation and Security Rules

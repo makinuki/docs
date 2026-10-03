@@ -20,7 +20,7 @@ MakiDoku reads configuration from CLI flags, environment variables, and an optio
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `MAKIDOKU_CHALLENGE_WAIT` | `2m` | How long a blocked request waits for anti-bot clearance before failing. Set `0` to fail immediately instead |
+| `MAKIDOKU_CHALLENGE_WAIT` | `0` | How long a blocked request waits for anti-bot clearance before failing |
 | `MAKIDOKU_PAGE_INTERVAL` | `500ms` | Minimum interval between image requests to the same domain |
 
 ### Downloads
@@ -61,7 +61,7 @@ MYANIMELIST_CLIENT_ID=your-id
 MANGABAKA_CLIENT_ID=your-id
 ```
 
-Kitsu and MangaUpdates need no application registration.
+MangaUpdates and Kitsu use username/password login through the local API and do not require application registration.
 
 ## CLI flags
 

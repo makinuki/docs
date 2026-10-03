@@ -24,9 +24,12 @@ sources/
 │   ├── omegascans/
 │   └── weebcentral/
 ├── scripts/
-│   ├── build.ts      # batch compiler: sources/* -> dist/*.wasm
-│   └── release.sh    # per-plugin release script
-├── dist/             # compiled .wasm outputs (gitignored)
+│   ├── build.ts          # batch compiler: sources/* -> dist/*.wasm
+│   ├── run-tests.ts      # conformance runner: schemas + live endpoints
+│   ├── generate-index.ts # registry builder: dist/*.wasm -> dist/index.json
+│   ├── lib/host.ts       # shared WASM host (fetch, storage, log)
+│   └── release.sh        # cuts and tags a release for one source
+├── dist/                 # compiled .wasm outputs (gitignored)
 └── package.json
 ```
 
@@ -37,16 +40,16 @@ Every subdirectory under `sources/` is one independent plugin package with its o
 | Plugin | Approach | Notes |
 | --- | --- | --- |
 | `asurascans` | REST API | Asura Scans API with per-series chapter pagination |
-| `atsumaru` | HTML scraping | Atsumaru reader with DOM parsing |
+| `atsumaru` | JSON API | Atsumaru reader |
 | `batcave` | HTML scraping | Gated by anti-bot challenge (`challengeGated: true`) |
 | `cubari` | Aggregator | Multi-host aggregator with `allowedHosts` spanning dozens of CDNs |
-| `kagane` | HTML scraping | Multi-language source with rotating domains |
-| `mangaball` | HTML scraping | Simple manga reader scraper |
+| `kagane` | JSON API | Multi-language source with rotating domains |
+| `mangaball` | JSON API | Simple manga reader |
 | `mangadex` | REST API | MangaDex official API with cover size variants and blocked-group filtering |
-| `mangadotnet` | HTML scraping | Manga reader site scraper |
-| `mangafire` | HTML scraping | Gated by anti-bot challenge |
-| `mangakakalot` | HTML scraping | Classic manga reader scraper |
-| `omegascans` | HTML scraping | Omega Scans reader |
+| `mangadotnet` | JSON API | Manga reader site |
+| `mangafire` | Signed JSON API | Gated by anti-bot challenge |
+| `mangakakalot` | JSON API + HTML | Classic manga reader |
+| `omegascans` | JSON API | Omega Scans reader |
 | `weebcentral` | HTML scraping | Gated by anti-bot challenge |
 
 ## Next steps

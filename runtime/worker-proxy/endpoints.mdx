@@ -121,6 +121,10 @@ Content-Type: image/jpeg
 
 The worker mirrors the response into the Cloudflare Cache API so subsequent identical requests are served from the edge.
 
+### Image type sniffing
+
+If the upstream response lacks a `content-type` header or its value does not start with `image/`, the worker inspects the first bytes of the body to detect the actual format. Supported types: PNG, JPEG, GIF, WebP, and AVIF. The correct MIME type is then set on the outgoing response so browsers render the image properly.
+
 ## GET /health and GET /healthz
 
 Liveness probe that also reports the current allowlist size.

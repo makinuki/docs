@@ -59,13 +59,27 @@ Two workflows run on every push:
    - Rebuilds all plugins
    - Runs conformance tests against every plugin
    - Regenerates and republishes the `makinuki.github.io` registry
-   - Unchanged plugins keep their existing version and artifact
-2. **Tag push pipeline** (`<id>-vX.Y.Z`)
-   - Verifies that the built plugin metadata matches the tag version
-   - Deploys the updated registry
-   - Creates a GitHub Release named after the tag
-   - Attaches `dist/wasm/<id>-v<version>.wasm` as an artifact
-   - Copies the matching changelog section into the release notes
+   - Unchanged plugins keep their version
+
+<Info>
+  Registry deployments are serialized through a single queue, so concurrent releases cannot overwrite each other on the Pages repository. The pipeline also enforces that no plugin version ever moves backwards.
+</Info>
+
+- Verifies that the built plugin metadata matches the tag version
+- Deploys the updated registry
+- Creates a GitHub Release named after the tag
+- Attaches `dist/wasm/<id>-v<version>.wasm` as an artifact
+- Copies the matching changelog section into the release notes
+
+<Info>
+  Registry deployments are serialized through a single queue, so concurrent releases cannot overwrite each other on the Pages repository. The pipeline also enforces that no plugin version ever moves backwards.
+</Info>
+
+- Verifies that the built plugin metadata matches the tag version
+- Deploys the updated registry
+- Creates a GitHub Release named after the tag
+- Attaches `dist/wasm/<id>-v<version>.wasm` as an artifact
+- Copies the matching changelog section into the release notes
 
 <Info>
   Registry deployments are serialized through a single queue, so concurrent releases cannot overwrite each other on the Pages repository. The pipeline also enforces that no plugin version ever moves backwards.

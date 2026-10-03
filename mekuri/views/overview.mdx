@@ -71,14 +71,15 @@ The underlying virtualized column used by `WebtoonView`. It owns scroll alignmen
 | `gap` | `number` | Vertical gap in pixels. Forced to `0` in webtoon mode |
 | `overscan` | `number` | Items rendered above and below the visible range. Defaults to `4` |
 | `estimateSize` | `number` | Estimated page height before first measurement |
+| `now` | `() => number` | Injectable monotonic clock for the scroll-alignment settling window |
 
 ## HUD primitives
 
 The views package exposes several unstyled HUD primitives you can compose into custom chrome:
 
-- `MekuriHUD`: the full control bar with prev/next, zoom controls, and a status region
+- `MekuriHUD`: the full control bar with prev/next, zoom controls, and a status region. Props include `engine`, `pages`, `altLabeler`, `formatStatus`, `zoomControls`, `status`, `focusTargetRef`, and `children` (rendered before the navigation controls).
 - `MekuriHudButton`: a 44 by 44 pixel minimum touch target with a `data-mekuri-control` identifier
-- `MekuriZoneOverlay`: an inspectable zone map drawn over the reading surface
+- `MekuriZoneOverlay`: an inspectable zone map drawn over the reading surface. Props include `engine`, `zoneMap` (defaults to the active engine map), `className`, and `style`.
 - `MekuriPageStatus`: a polite live region that announces the current reading position
 
 ## Utility hooks
@@ -87,7 +88,7 @@ The views package exposes several unstyled HUD primitives you can compose into c
 | --- | --- |
 | `useEngineState(engine)` | Subscribes to engine state changes with `useSyncExternalStore` |
 | `useEngineSelector(engine, select)` | Subscribes to a single field of engine state. The selected value is memoized against the state snapshot, so an object field keeps its identity across unrelated updates. |
-| `useMekuriSurface(options)` | Attaches the gesture and keyboard layers to a surface ref |
+| `useMekuriSurface(options)` | Attaches the gesture and keyboard layers to a surface ref and returns a `MekuriSurfaceController` with `getGestures()` and `getKeyboard()` |
 
 The engine argument for both subscription hooks is a `MekuriViewEngine`. `useMekuriEngine` exposes `subscribe`, `getState`, and `reportScroll` on its output so the shipped views and custom surfaces attach to the hook result directly, and `syncControlled` reconciles host-owned state during render.
 

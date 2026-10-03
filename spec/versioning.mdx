@@ -40,6 +40,16 @@ The following six decisions are recorded as ratified for ABI 1:
 5. **`abiVersion` / `minRuntimeVersion` as two independent axes:** The ABI contract version and the runtime package floor are separate fields (Section 5.2).
 6. **`makinuki_parse_html` excluded from ABI 1:** No host-side HTML parsing import is provided in ABI 1.
 
+## Decision Log (1.3.0 Additions)
+
+The following optional, non-breaking additions were ratified under the Non-Breaking Additions rule with no `abiVersion` bump:
+
+1. **`get_settings` static export and `SettingSchema`:** Sources declare user-configurable options (`checkbox`, `select`, `text` with optional `sensitive`); hosts persist values under the setting `id` in the plugin storage namespace; plugins read them at call time with `makinuki_storage_get`. A `text` setting with id `base_url` is the well-known domain-override convention.
+2. **`tags` on `MangaDetails` and `locked` on `ChapterItem`:** Sources that distinguish secondary descriptors from primary `genres` populate `tags`; `locked: true` marks chapters requiring payment or entitlement at the source site.
+3. **`rateLimit` and `retry` transfer hints on `SourceMetadata`:** Sources suggest politeness and retry policies to hosts via optional `rateLimit` and `retry` objects, carried unchanged in registry entries.
+4. **Absolute URI requirement for dynamic-export URL fields:** Every URL field in dynamic-export payloads must be an absolute `http` or `https` URI.
+5. **`page.schema.json` requires `metadata` when `isScrambled` is true:** The schema now enforces the Section 3.5 text that `metadata` is required whenever `isScrambled` is true.
+
 ## Explicitly Out of ABI 1
 
 A host-side HTML parsing import (`makinuki_parse_html`) is deferred. If it is ever introduced, it ships as **ABI 2**. Plugins that need HTML parsing must do so inside the WASM module using their own parser library.

@@ -69,6 +69,15 @@ go run . download 'mangadex:<manga-id>' --chapters 1-5 \
     curl -X POST http://127.0.0.1:6254/api/download/1/retry
     ```
   </Step>
+  <Step title="Retry failed items by source">
+    ```bash
+    curl -X POST http://127.0.0.1:6254/api/download/retry-failed \
+      -H 'Content-Type: application/json' \
+      -d '{"sourceId":"mangadex"}'
+    ```
+
+    This moves every failed item of one source back to the queue and returns the count retried.
+  </Step>
   <Step title="Reorder or batch cancel">
     ```bash
     curl -X POST http://127.0.0.1:6254/api/download/reorder \

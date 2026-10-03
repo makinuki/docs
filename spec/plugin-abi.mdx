@@ -10,7 +10,7 @@ Every MakiNuki plugin exports a fixed set of functions that the host runtime cal
 
 <Tabs>
   <Tab title="Static">
-    `get_metadata()` and `get_filters()` return raw JSON directly. They do not use the `PluginResult` envelope because they are called once at load time and their failure is treated as a broken plugin.
+    `get_metadata()`, `get_filters()`, and the optional `get_settings()` return raw JSON directly. They do not use the `PluginResult` envelope because they are called once at load time and their failure is treated as a broken plugin.
   </Tab>
   <Tab title="Dynamic">
     `search()`, `get_details()`, and `get_pages()` return `PluginResult<T>` JSON. The host inspects the `ok` field to decide whether to forward `data` or surface `error.code`.
@@ -77,6 +77,36 @@ Returns an array of `FilterSchema` objects that describe the source's search cap
   }
 ]
 ```
+
+---
+
+### `get_settings()` (Optional)
+
+Returns an array of `SettingSchema` objects that describe user-configurable options for the source. This export is optional; sources with no settings omit it entirely.
+
+<ParamField body="returns" type="string">
+  JSON array of `CheckboxSetting | SelectSetting | TextSetting`. See [Data Schemas](/spec/data-schemas) for definitions.
+</ParamField>
+
+```json
+[
+  {
+    "id": "base_url",
+    "title": "Base URL",
+    "type": "text",
+    "placeholder": "https://asuracomic.net",
+    "default": "https://asuracomic.net"
+  },
+  {
+    "id": "high_quality",
+    "title": "High quality images",
+    "type": "checkbox",
+    "default": true
+  }
+]
+```
+
+The host persists each setting value under the setting `id` in the plugin's per-source storage namespace. Plugins read current values at call time with `makinuki_storage_get`.
 
 ---
 

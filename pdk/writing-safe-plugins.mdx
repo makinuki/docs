@@ -16,6 +16,10 @@ The compiled bundle runs in a WebAssembly sandbox. There is no `fs`, no `net`, n
 
 If you need HTTP, storage, or logging, use the [host services](/pdk/host-services) wrappers exposed by `@makinuki/pdk`. If you need DOM parsing, use `parseHTML` from the PDK.
 
+## URL fields must be absolute
+
+Every URL field in a dynamic-export payload, including `MangaItem.coverUrl`, `MangaDetails.coverUrl`, `ChapterItem.url`, and `PageItem.url`, must be an absolute `http://` or `https://` URI. Resolve relative hrefs with `resolveUrl` against the page URL before returning them.
+
 ## DOM parsing must be WASM-safe
 
 Use `cheerio/slim` (the htmlparser2 backend), which is what `parseHTML` uses under the hood.

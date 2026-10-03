@@ -20,6 +20,10 @@ Every plugin must implement these five functions. Their names and signatures are
 
 ## Optional exports
 
+<ParamField path="get_settings" type="() => I32">
+  Returns the plugin settings schema as raw JSON (`SettingSchema[]`). Declare this export when your plugin exposes user-configurable settings such as session tokens, source preferences, or image quality options.
+</ParamField>
+
 <ParamField path="unscramble_image" type="(inputPtr: I32) => I32">
   Reserved for sources that scramble page images. When implemented, the host calls this export with the scrambled image bytes and the `ScrambleInfo` metadata attached to the `PageItem`.
 </ParamField>
@@ -28,7 +32,7 @@ Every plugin must implement these five functions. Their names and signatures are
 
 The ABI splits exports into two shapes:
 
-- **Static exports** (`get_metadata`, `get_filters`) return their payload as raw JSON. There is no envelope; the host reads the value directly.
+- **Static exports** (`get_metadata`, `get_filters`, `get_settings`) return their payload as raw JSON. There is no envelope; the host reads the value directly.
 - **Dynamic exports** (`search`, `get_details`, `get_pages`, `unscramble_image`) wrap their payload in the `PluginResult<T>` envelope so failures carry a machine-readable code and message.
 
 ```ts PluginResult<T>

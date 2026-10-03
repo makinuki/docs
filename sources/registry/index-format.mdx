@@ -11,19 +11,19 @@ The `index.json` file at `https://makinuki.github.io/index.json` is the single r
 ```json index.json
 {
   "version": 1,
-  "updatedAt": 1789230054,
+  "updatedAt": 1790493688,
   "sources": [
     {
       "id": "cubari",
       "name": "Cubari",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "abiVersion": 1,
       "lang": "multi",
       "baseUrl": "https://cubari.moe",
       "iconUrl": "https://cubari.moe/static/favicon.png",
       "nsfw": false,
-      "wasmUrl": "https://makinuki.github.io/wasm/cubari-v1.0.1.wasm",
-      "sha256": "fb90fd4770ec24cbccbdef9253c76b45d4665ce6e8f0ac98f9b3b59e347a74bb",
+      "wasmUrl": "https://makinuki.github.io/wasm/cubari-v1.1.0.wasm",
+      "sha256": "4a34b798e37050d107c6ef01b09b7d8d74d0264ce1749cdb58306acc8c425723",
       "minRuntimeVersion": "1.0.0",
       "allowedHosts": [
         "cubari.moe",
@@ -114,4 +114,18 @@ The `index.json` file at `https://makinuki.github.io/index.json` is the single r
 
 <ParamField path="allowedHosts" type="string[]">
   Additional image or CDN hostnames the source uses beyond `baseUrl`. Transport proxies use this list to decide which outbound requests to proxy on behalf of the plugin. For example, a source that pulls chapter images from `i.imgur.com` should include that hostname here. See [Worker Proxy Security](/runtime/worker-proxy/security) for how proxies enforce host allowlisting.
+</ParamField>
+
+<ParamField path="rateLimit" type="object">
+  Politeness policy the source asks hosts to keep. Carried unchanged from the plugin's `get_metadata` output.
+
+  - `intervalMs` (integer): Minimum delay between requests to the source.
+  - `burst` (integer): Concurrent requests the source tolerates.
+</ParamField>
+
+<ParamField path="retry" type="object">
+  Retry policy the source suggests for failed requests. Carried unchanged from the plugin's `get_metadata` output.
+
+  - `maxAttempts` (integer): Attempts for a failed request before giving up.
+  - `backoffMs` (integer): Base delay between retries.
 </ParamField>

@@ -21,6 +21,24 @@ interface SourceMetadata {
   iconUrl: string;
   nsfw: boolean;
   allowedHosts?: string[];
+  rateLimit?: RateLimitHint;
+  retry?: RetryHint;
+}
+```
+
+## Transfer hints
+
+Plugins can advise the host about rate limits and retry behavior through optional fields on `SourceMetadata`.
+
+```ts
+interface RateLimitHint {
+  intervalMs?: number;
+  burst?: number;
+}
+
+interface RetryHint {
+  maxAttempts?: number;
+  backoffMs?: number;
 }
 ```
 
@@ -57,6 +75,38 @@ interface TextFilter extends BaseFilter {
   type: "text";
   placeholder?: string;
   default?: string;
+}
+```
+
+## Settings
+
+Returned by the optional `get_settings` export as raw JSON (`SettingSchema[]`).
+
+```ts
+type SettingSchema = CheckboxSetting | SelectSetting | TextSetting;
+
+interface BaseSetting {
+  id: string;
+  title: string;
+  description?: string;
+}
+
+interface CheckboxSetting extends BaseSetting {
+  type: "checkbox";
+  default: boolean;
+}
+
+interface SelectSetting extends BaseSetting {
+  type: "select";
+  options: Array<{ label: string; value: string }>;
+  default: string;
+}
+
+interface TextSetting extends BaseSetting {
+  type: "text";
+  placeholder?: string;
+  default?: string;
+  sensitive?: boolean;
 }
 ```
 
@@ -118,6 +168,7 @@ interface MangaDetails {
   authors?: string[];
   artists?: string[];
   genres?: string[];
+  tags?: string[];
   status: "Ongoing" | "Completed" | "Hiatus" | "Cancelled" | "Unknown";
   coverUrl?: string;
   chapters: ChapterItem[];
@@ -136,6 +187,7 @@ interface ChapterItem {
   title?: string;
   uploadedAt?: number;
   scanlator?: string;
+  locked?: boolean;
   url?: string;
 }
 ```

@@ -16,9 +16,6 @@ export interface StorageAdapter {
   set(key: string, value: string): Promise<void>;
   delete(key: string): Promise<void>;
 }
-  get(key: string): Promise<string | null>;
-  set(key: string, value: string): Promise<void>;
-}
 ```
 
 Keys are automatically namespaced per source: the runtime prefixes every key with `${sourceId}:${key}` before calling the adapter.
@@ -62,6 +59,35 @@ export const STORAGE_VALUE_CAP = 64 * 1024;
 <Warning>
   The cap is measured in bytes after UTF-8 encoding, not string length. A 65,000-character string that includes multi-byte characters can exceed the limit even though its `length` is under 65,536.
 </Warning>
+
+## Source Settings
+
+As of `@makinuki/runtime-web` 1.1.0, plugins can declare user-configurable settings through an optional `get_settings` export. The runtime probes this export at load time and exposes the settings API on every `MakiNukiSource`.
+
+```ts
+const source = await runtime.loadSource("mangadex");
+
+if (source.hasSettings) {
+  const settings = await source.getSettings(); // SettingSchema[]
+}
+```
+
+### Reading and writing values
+
+Use `setSetting` to persist a value and `isSettingSet` to check whether it exists. Sensitive settings (text inputs marked `sensitive: true`) are never returned directly; query their presence with `isSettingSet` instead.
+
+```ts
+await source.setSetting("data_saver", true);                    // checkbox: boolean
+await source.setSetting("base_url", "https://mirror.example");  // text: string
+await source.isSettingSet("base_url");                          // true
+await source.getSettingValue("base_url");                       // "https://mirror.example"
+
+await source.setSetting("base_url", null);                      // reset: deletes the key
+```
+
+Values are written into the plugin's per-source storage namespace, so the plugin reads them back through `makinuki_storage_get` at call time. `select` values must be one of the declared options, and every write is checked against the declared setting schema and the 64 KB storage cap. A missing key means the declared default applies.
+
+Custom `StorageAdapter` implementations must implement `delete()` to support resets.
 
 ## Fetching images
 

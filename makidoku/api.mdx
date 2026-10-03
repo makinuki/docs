@@ -49,6 +49,8 @@ MakiDoku exposes a local REST API on `http://127.0.0.1:6254`. The base path is `
 | `DELETE` | `/api/manga/{mangaID}/library` | Remove title from library |
 | `PATCH` | `/api/manga/{mangaID}/downloads` | Toggle auto-download |
 | `PATCH` | `/api/manga/{mangaID}/reader` | Store reader overrides |
+| `PATCH` | `/api/manga/{mangaID}/chapter-view` | Store per-title chapter list view (sort, filter, language) |
+| `POST` | `/api/manga/{mangaID}/refresh` | Refresh title from source |
 | `POST` | `/api/manga/{mangaID}/refresh` | Refresh title from source |
 | `POST` | `/api/manga/{mangaID}/categories/{categoryID}` | Add to category |
 | `DELETE` | `/api/manga/{mangaID}/categories/{categoryID}` | Remove from category |
@@ -95,7 +97,8 @@ MakiDoku exposes a local REST API on `http://127.0.0.1:6254`. The base path is `
 | `POST` | `/api/download/cancel-all` | Cancel every active queue row |
 | `POST` | `/api/download/cancel` | Cancel the listed queue items (body: `{"itemIds":[...]}`) |
 | `POST` | `/api/download/reorder` | Store queue order given as item ids in display order (body: `{"itemIds":[...]}`) |
-| `GET` | `/api/download/events` | WebSocket: real-time events |
+| `POST` | `/api/download/retry-failed` | Retry failed items for one source (body: `{"sourceId":"..."}`) |
+| `GET` | `/api/download/events` | WebSocket: real-time events | "sourceId":"..."\}\`) |
 | `POST` | `/api/download/{itemID}/pause` | Pause item |
 | `POST` | `/api/download/{itemID}/resume` | Resume item |
 | `POST` | `/api/download/{itemID}/cancel` | Cancel item |

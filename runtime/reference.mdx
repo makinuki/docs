@@ -347,13 +347,13 @@ interface RetryHint {
 type FilterSchema = SelectFilter | TriStateFilter | CheckboxFilter | TextFilter;
 ```
 
-### `CheckboxSetting`, `SelectSetting`, and `TextSetting`
-
-````ts
-interface CheckboxSetting {
+### `SettingSchema`
 
 ```ts
-interface CheckboxSetting {
+type SettingSchema = CheckboxSetting | SelectSetting | TextSetting;
+```
+
+### `CheckboxSetting`, `SelectSetting`, and `TextSetting`
 
 ```ts
 interface CheckboxSetting {
@@ -382,7 +382,7 @@ interface TextSetting {
   default?: string;
   sensitive?: boolean;
 }
-````
+```
 
 ### `SelectFilter`, `TriStateFilter`, `CheckboxFilter`, and `TextFilter`
 
@@ -456,12 +456,6 @@ interface RegistryIndex {
 type PluginResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: { code: ErrorCode; message: string } };
-```
-
-## Host functions
-
-```ts
-type SettingSchema = CheckboxSetting | SelectSetting | TextSetting;
 ```
 
 ## Host functions

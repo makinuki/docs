@@ -90,7 +90,7 @@ Image delivery uses mode-specific optimizations:
 
 - **Direct**: adds a default Chrome User-Agent header.
 - **Companion**: fetches through the extension bridge and returns a `Blob` decoded from a base64 `bodyBase64` field. Use this for header-protected images (e.g., `Referer`-locked CDN).
-- **Worker**: builds a signed `GET /proxy?url=&ref=` URL and fetches it directly with optional origin headers. The worker caches the response for seven days.
+- **Worker**: builds a proxiproxiproxiproxied `GET /proxy?url=&ref=` URL and fetches it directly with optional origin headers. The worker caches the response for seven days.
 
 ## CORS reality
 

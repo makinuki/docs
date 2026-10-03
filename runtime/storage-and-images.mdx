@@ -11,7 +11,7 @@ The MakiNuki web runtime provides two built-in storage backends and transport-aw
 Plugins read and write small key-value pairs through the `makinuki_storage_get` and `makinuki_storage_set` host functions. The runtime maps these to a `StorageAdapter` that you can customize or replace.
 
 ```ts
-export interface StorageAdapter {
+interface StorageAdapter {
   get(key: string): Promise<string | null>;
   set(key: string, value: string): Promise<void>;
   delete(key: string): Promise<void>;
@@ -22,29 +22,20 @@ Keys are automatically namespaced per source: the runtime prefixes every key wit
 
 ### Built-in adapters
 
-The runtime ships with two adapters.
+The runtime automatically selects the best available adapter:
 
-#### LocalStorageAdapter
+- **LocalStorageAdapter** uses the browser's `localStorage` when it is available.
+- **MemoryStorage** is a pure in-memory `Map` fallback used when `localStorage` is absent (for example, in private mode with storage disabled or in some test environments).
 
-Uses the browser's `localStorage`. This is the default when `localStorage` is available.
-
-```ts
-import { LocalStorageAdapter } from "@makinuki/runtime-web";
-
-const runtime = new MakiNukiRuntime({
-  storage: new LocalStorageAdapter(),
-});
-```
-
-#### MemoryStorage
-
-A pure in-memory `Map` fallback. Used automatically when `localStorage` is absent (e.g., in private mode with storage disabled or in some test environments).
+You do not need to configure either adapter explicitly. To provide custom storage, pass any object that implements the `StorageAdapter` interface.
 
 ```ts
-import { MemoryStorage } from "@makinuki/runtime-web";
-
 const runtime = new MakiNukiRuntime({
-  storage: new MemoryStorage(),
+  storage: {
+    async get(key) { /* ... */ },
+    async set(key, value) { /* ... */ },
+    async delete(key) { /* ... */ },
+  },
 });
 ```
 
@@ -102,7 +93,7 @@ The transport layer handles mode-specific details automatically:
 
 - **Direct** applies a default Chrome User-Agent.
 - **Companion** encodes the response as base64 and decodes it back into a `Blob`.
-- **Worker** builds a `GET /proxy?url=&ref=` URL and streams the response with a seven-day immutable cache.
+- **Worker** builds a proxied `GET /proxy?url=&ref=` URL and streams the response with a seven-day immutable cache.
 
 ## Scrambled images
 

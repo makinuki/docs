@@ -77,7 +77,7 @@ Every flag has an equivalent environment variable. Flags override environment va
 | `--workers` | `$MAKIDOKU_DOWNLOAD_WORKERS` | Concurrent download workers |
 | `--page-interval` | `$MAKIDOKU_PAGE_INTERVAL` | Per-domain page request interval |
 | `--registry` | `$MAKIDOKU_REGISTRY_URL` | Source registry URL or path |
-| `--challenge-wait` | `2m` or `$MAKIDOKU_CHALLENGE_WAIT` | Anti-bot challenge wait duration. `0` fails a blocked request immediately |
+| `--challenge-wait` | `0` or `$MAKIDOKU_CHALLENGE_WAIT` | Anti-bot challenge wait duration |
 
 ### `serve`
 

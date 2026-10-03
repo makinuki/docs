@@ -1,42 +1,16 @@
 ---
 title: "Web Runtime API Reference"
 sidebarTitle: "Reference"
-description: "Complete public API reference for @makinuki/runtime-web: classes, methods, error types, and constants exported from src/index.ts."
+description: "Complete public API reference for @makinuki/runtime-web: exported classes, methods, types, and error shapes."
 ---
 
-This page documents every public export from `@makinuki/runtime-web`. All classes, interfaces, errors, and constants are grounded in the source at `src/index.ts` and its dependency modules.
-
-## Constants
-
-### `ABI_VERSION`
-
-```ts
-const ABI_VERSION = 1;
-```
-
-The frozen ABI version that the runtime expects from every plugin. Mismatches throw `RegistryError` at load time.
-
-### `DEFAULT_REGISTRY_URL`
-
-```ts
-const DEFAULT_REGISTRY_URL = "https://makinuki.github.io/index.json";
-```
-
-The default registry manifest URL used when `registryUrl` is omitted from `MakiNukiRuntimeOptions`.
-
-### `STORAGE_VALUE_CAP`
-
-```ts
-const STORAGE_VALUE_CAP = 64 * 1024;
-```
-
-Maximum byte length of a single storage value. Exceeding this throws from `makinuki_storage_set`.
+This page documents every public export from `@makinuki/runtime-web`. All documented APIs are grounded in `src/index.ts` and its exported type surface.
 
 ## Classes
 
 ### `MakiNukiRuntime`
 
-The top-level entry point. Creates a `Registry`, `TransportManager`, and optional `StorageAdapter`.
+The top-level entry point. Creates a registry, transport manager, and optional storage adapter.
 
 ```ts
 class MakiNukiRuntime {
@@ -56,7 +30,7 @@ class MakiNukiRuntime {
 <ParamField path="options" type="MakiNukiRuntimeOptions">
   <Expandable title="properties">
     <ParamField path="registryUrl" type="string">
-      Custom registry URL. Defaults to `DEFAULT_REGISTRY_URL`.
+      Custom registry URL. Defaults to the built-in registry.
     </ParamField>
 
     <ParamField path="proxyUrl" type="string">
@@ -68,7 +42,7 @@ class MakiNukiRuntime {
     </ParamField>
 
     <ParamField path="storage" type="StorageAdapter">
-      Custom storage adapter.
+      Custom storage adapter. Must implement `get`, `set`, and `delete`.
     </ParamField>
 
     <ParamField path="validate" type="boolean">
@@ -83,127 +57,34 @@ class MakiNukiRuntime {
 
 ### `MakiNukiSource`
 
-A thin typed wrapper around a loaded plugin. Each call validates against the ABI 1 schema when `validate` is `true`.
+A typed wrapper around a loaded plugin. Each call validates against the ABI 1 schema when `validate` is `true`.
 
 ```ts
 class MakiNukiSource {
   readonly id: string;
   readonly metadata: SourceMetadata;
+  readonly hasSettings: boolean;
   readonly lastTransportMode: TransportMode | null;
 
   async getMetadata(): Promise<SourceMetadata>;
   async getFilters(): Promise<FilterSchema[]>;
+  async getSettings(): Promise<SettingSchema[]>;
   async search(query?: Partial<SearchQuery>): Promise<PageResult<MangaItem>>;
   async getDetails(mangaId: string): Promise<MangaDetails>;
   async getPages(chapterId: string): Promise<PageItem[]>;
   async fetchImage(page: PageItem): Promise<Blob>;
   async unscrambleImage(bytes: Uint8Array): Promise<Uint8Array>;
   async fetchScrambledPage(page: PageItem): Promise<Blob>;
+  async setSetting(id: string, value: string | boolean | null): Promise<void>;
+  async isSettingSet(id: string): Promise<boolean>;
+  async getSettingValue(id: string): Promise<string | null>;
   async close(): Promise<void>;
-}
-```
-
-### `MakiNukiPlugin`
-
-Low-level Extism wrapper. Loads a WASM binary and exposes plugin exports.
-
-```ts
-class MakiNukiPlugin {
-  static async load(wasmBytes: Uint8Array, functions: Record<string, HostFunction>): Promise<MakiNukiPlugin>;
-  async callStatic<T>(name: string): Promise<T>;
-  async callDynamic<T>(name: string, input: string): Promise<T>;
-  async unscramble(bytes: Uint8Array): Promise<Uint8Array>;
-  async hasExport(name: string): Promise<boolean>;
-  async close(): Promise<void>;
-}
-```
-
-### `Registry`
-
-Fetches and caches the registry manifest. Verifies WASM downloads with SHA-256.
-
-```ts
-class Registry {
-  constructor(registryUrl?: string);
-
-  async index(): Promise<RegistryIndex>;
-  async find(id: string): Promise<RegistryEntry>;
-
-  static async sha256(bytes: Uint8Array): Promise<string>;
-  static async fetchVerifiedWasm(entry: RegistryEntry): Promise<Uint8Array>;
-}
-```
-
-### `TransportManager`
-
-Routes HTTP requests and image fetches through the selected transport mode.
-
-```ts
-class TransportManager {
-  readonly companion: CompanionClient;
-  readonly worker: WorkerClient | null;
-
-  constructor(options?: TransportOptions);
-
-  async detect(): Promise<TransportMode | null>;
-  get lastMode(): TransportMode | null;
-  async fetch(request: HttpRequest): Promise<HttpResponse>;
-  async fetchImage(url: string, headers?: Record<string, string>): Promise<Blob>;
-}
-```
-
-### `WorkerClient`
-
-HTTP relay client for the Cloudflare Worker proxy.
-
-```ts
-class WorkerClient {
-  readonly proxyUrl: string;
-
-  constructor(proxyUrl: string, clientToken?: string, origin?: string);
-
-  async relay(request: HttpRequest): Promise<HttpResponse>;
-  imageUrl(url: string, referer?: string): string;
-}
-```
-
-### `CompanionClient`
-
-Messaging client for the Manifest V3 companion extension.
-
-```ts
-class CompanionClient {
-  async detect(): Promise<boolean>;
-  get isAvailable(): boolean;
-  async request(method: string, url: string, headers?: Record<string, string>, body?: string | null, responseType?: "text" | "arraybuffer"): Promise<CompanionResponse>;
-  async fetch(request: HttpRequest): Promise<HttpResponse>;
-}
-```
-
-### `LocalStorageAdapter`
-
-Browser `localStorage` backed adapter. Falls back to `MemoryStorage` if unavailable.
-
-```ts
-class LocalStorageAdapter implements StorageAdapter {
-  constructor(backend?: Storage | null);
-  async get(key: string): Promise<string | null>;
-  async set(key: string, value: string): Promise<void>;
-}
-```
-
-### `MemoryStorage`
-
-In-memory `Map` backed adapter.
-
-```ts
-class MemoryStorage implements StorageAdapter {
-  async get(key: string): Promise<string | null>;
-  async set(key: string, value: string): Promise<void>;
 }
 ```
 
 ## Error classes
+
+The runtime throws the following errors internally. You can catch them by `instanceof Error` or by inspecting `err.message`.
 
 ### `PluginError`
 
@@ -255,6 +136,18 @@ interface TransportOptions {
 }
 ```
 
+### `StorageAdapter`
+
+Custom storage implementations must match this shape. Keys are automatically namespaced per source by the runtime.
+
+```ts
+interface StorageAdapter {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<void>;
+  delete(key: string): Promise<void>;
+}
+```
+
 ### `HttpRequest` and `HttpResponse`
 
 ```ts
@@ -298,6 +191,277 @@ type ErrorCode =
   | "UNSUPPORTED_MEDIA"
   | "MEMORY_LIMIT_EXCEEDED"
   | "UNSCRAMBLE_FAILED";
+```
+
+### `MakiNukiRuntimeOptions`
+
+```ts
+interface MakiNukiRuntimeOptions {
+  registryUrl?: string;
+  proxyUrl?: string;
+  clientToken?: string;
+  storage?: StorageAdapter;
+  validate?: boolean;
+  transport?: TransportOptions;
+}
+```
+
+### `ScrambleInfo`
+
+```ts
+interface ScrambleInfo {
+  layout: "slice" | "shift" | "custom";
+  rows: number;
+  cols: number;
+  tileW: number;
+  tileH: number;
+  order: number[];
+}
+```
+
+### `PageItem`
+
+```ts
+interface PageItem {
+  index: number;
+  url: string;
+  headers?: Record<string, string>;
+  isScrambled: boolean;
+  metadata?: ScrambleInfo;
+}
+```
+
+### `ChapterItem`
+
+```ts
+interface ChapterItem {
+  id: string;
+  number: number | null;
+  volume?: number;
+  language?: string;
+  title?: string;
+  uploadedAt?: number;
+  scanlator?: string;
+  locked?: boolean;
+  url?: string;
+}
+```
+
+### `CoverVariant`
+
+```ts
+interface CoverVariant {
+  url: string;
+  width?: number;
+  height?: number;
+}
+```
+
+### `MangaItem`
+
+```ts
+interface MangaItem {
+  id: string;
+  title: string;
+  coverUrl?: string;
+  latestChapter?: string;
+  url?: string;
+  covers?: CoverVariant[];
+}
+```
+
+### `MangaDetails`
+
+```ts
+interface MangaDetails {
+  id: string;
+  title: string;
+  altTitles?: string[];
+  description?: string;
+  authors?: string[];
+  artists?: string[];
+  genres?: string[];
+  tags?: string[];
+  status: "Ongoing" | "Completed" | "Hiatus" | "Cancelled" | "Unknown";
+  coverUrl?: string;
+  covers?: CoverVariant[];
+  chapters: ChapterItem[];
+}
+```
+
+### `PageResult<T>`
+
+```ts
+interface PageResult<T> {
+  page: number;
+  hasNextPage: boolean;
+  items: T[];
+}
+```
+
+### `SearchQuery`
+
+```ts
+interface SearchQuery {
+  query: string;
+  page: number;
+  filters: Record<string, unknown>;
+}
+```
+
+### `SourceMetadata`
+
+```ts
+interface SourceMetadata {
+  id: string;
+  name: string;
+  version: string;
+  abiVersion: number;
+  lang: string;
+  baseUrl: string;
+  iconUrl: string;
+  nsfw: boolean;
+  allowedHosts?: string[];
+  rateLimit?: RateLimitHint;
+  retry?: RetryHint;
+}
+```
+
+### `RateLimitHint` and `RetryHint`
+
+```ts
+interface RateLimitHint {
+  intervalMs?: number;
+  burst?: number;
+}
+
+interface RetryHint {
+  maxAttempts?: number;
+  backoffMs?: number;
+}
+```
+
+### `FilterSchema`
+
+```ts
+type FilterSchema = SelectFilter | TriStateFilter | CheckboxFilter | TextFilter;
+```
+
+### `CheckboxSetting`, `SelectSetting`, and `TextSetting`
+
+````ts
+interface CheckboxSetting {
+
+```ts
+interface CheckboxSetting {
+
+```ts
+interface CheckboxSetting {
+  id: string;
+  title: string;
+  description?: string;
+  type: "checkbox";
+  default: boolean;
+}
+
+interface SelectSetting {
+  id: string;
+  title: string;
+  description?: string;
+  type: "select";
+  options: Array<{ label: string; value: string }>;
+  default: string;
+}
+
+interface TextSetting {
+  id: string;
+  title: string;
+  description?: string;
+  type: "text";
+  placeholder?: string;
+  default?: string;
+  sensitive?: boolean;
+}
+````
+
+### `SelectFilter`, `TriStateFilter`, `CheckboxFilter`, and `TextFilter`
+
+```ts
+interface SelectFilter {
+  id: string;
+  title: string;
+  type: "select";
+  options: Array<{ label: string; value: string }>;
+  default: string;
+}
+
+interface TriStateFilter {
+  id: string;
+  title: string;
+  type: "tri_state";
+  options: Array<{ label: string; value: string }>;
+  default?: Record<string, "+" | "-">;
+}
+
+interface CheckboxFilter {
+  id: string;
+  title: string;
+  type: "checkbox";
+  default: boolean;
+}
+
+interface TextFilter {
+  id: string;
+  title: string;
+  type: "text";
+  placeholder?: string;
+  default?: string;
+}
+```
+
+### `RegistryEntry`
+
+```ts
+interface RegistryEntry {
+  id: string;
+  name: string;
+  version: string;
+  abiVersion: number;
+  lang: string;
+  baseUrl: string;
+  iconUrl: string;
+  nsfw: boolean;
+  wasmUrl: string;
+  sha256: string;
+  minRuntimeVersion: string;
+  allowedHosts?: string[];
+  rateLimit?: RateLimitHint;
+  retry?: RetryHint;
+}
+```
+
+### `RegistryIndex`
+
+```ts
+interface RegistryIndex {
+  version: number;
+  updatedAt: number;
+  sources: RegistryEntry[];
+}
+```
+
+### `PluginResult<T>`
+
+```ts
+type PluginResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: ErrorCode; message: string } };
+```
+
+## Host functions
+
+```ts
+type SettingSchema = CheckboxSetting | SelectSetting | TextSetting;
 ```
 
 ## Host functions

@@ -39,7 +39,7 @@ When you create a `MakiNukiRuntime`, it wires together four layers:
 1. **Registry** (`Registry`) fetches the public manifest at `https://makinuki.github.io/index.json` (or any custom URL) and caches it. Each entry carries the plugin metadata, download URL, and SHA-256 digest.
 2. **Transport** (`TransportManager`) selects the best available network path. It can pin `direct`, `companion`, or `worker`, or auto-detect in that order.
 3. **Plugin loader** (`MakiNukiPlugin`) instantiates the WASM binary through Extism and wires the four `makinuki:*` host functions.
-4. **Source wrapper** (`MakiNukiSource`) exposes a typed JavaScript API around the raw plugin exports (`search`, `get_details`, `get_pages`, `get_metadata`, `get_filters`).
+4. **Source wrapper** (`MakiNukiSource`) exposes a typed JavaScript API around the raw plugin exports (`search`, `get_details`, `get_pages`, `get_metadata`, `get_filters`), plus optional `get_settings` when the plugin declares user-configurable settings, plus optional `get_settings` when the plugin declares user-configurable settings.
 
 ## Requirements
 
